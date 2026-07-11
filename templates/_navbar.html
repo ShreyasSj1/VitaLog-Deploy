@@ -41,6 +41,13 @@
         </div>
         {% endif %}
 
+        {% if current_user.is_authenticated %}
+        <!-- Mobile Profile Avatar -->
+        <a href="{{ url_for('auth.profile') }}" class="nav-user-mobile-avatar">
+            <div class="nav-avatar nav-avatar-fallback">{{ current_user.name[:1] | upper }}</div>
+        </a>
+        {% endif %}
+
         <button id="themeToggle" class="theme-btn">Dark</button>
         <button class="menu-toggle" id="menuToggle" aria-label="Open navigation menu" aria-expanded="false">☰</button>
     </div>

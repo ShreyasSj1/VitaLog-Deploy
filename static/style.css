@@ -2749,3 +2749,31 @@ button.secondary-btn {
         background: var(--border-color);
     }
 }
+
+/* Mobile Profile Avatar in Top Header */
+.nav-user-mobile-avatar {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .nav-user-mobile-avatar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+        margin-right: 12px;
+    }
+
+    .nav-user-mobile-avatar .nav-avatar {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        box-shadow: var(--shadow-sm);
+        border: 2px solid var(--border-color);
+        transition: transform 0.2s;
+    }
+
+    .nav-user-mobile-avatar:active .nav-avatar {
+        transform: scale(0.9);
+    }
+}
