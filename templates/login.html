@@ -114,14 +114,6 @@
                 btn.disabled = true;
                 btn.textContent = "Logging in...";
 
-                const methods = await fetchSignInMethodsForEmail(auth, email.trim());
-                if (!methods.length) {
-                    showError("create-account-first");
-                    btn.disabled = false;
-                    btn.textContent = "Jump Back In";
-                    return;
-                }
-
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const idToken = await userCredential.user.getIdToken();
                 
