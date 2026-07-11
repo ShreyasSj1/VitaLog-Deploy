@@ -187,12 +187,53 @@ if (!window.__sharedNavControls) {
             chatInput.focus();
             if (chatTooltip) chatTooltip.classList.remove('show');
             clearTimeout(tooltipTimeout);
+            setTimeout(scrollMessagesToBottom, 100);
         }
     });
 
     chatClose.addEventListener('click', () => {
         chatPopup.classList.remove('active');
+        chatPopup.style.height = '';
     });
+
+    function scrollMessagesToBottom() {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    // Dynamic sizing helper to keep chats and inputs visible above mobile virtual keyboard
+    if (window.visualViewport) {
+        const handleViewportChange = () => {
+            if (window.innerWidth > 768) {
+                chatPopup.style.height = '';
+                return;
+            }
+            if (chatPopup.classList.contains('active')) {
+                const height = window.visualViewport.height;
+                chatPopup.style.height = `${height * 0.75}px`;
+                scrollMessagesToBottom();
+            } else {
+                chatPopup.style.height = '';
+            }
+        };
+
+        window.visualViewport.addEventListener('resize', handleViewportChange);
+        window.visualViewport.addEventListener('scroll', handleViewportChange);
+
+        chatInput.addEventListener('focus', () => {
+            setTimeout(handleViewportChange, 150);
+        });
+
+        chatInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                if (window.innerWidth <= 768) {
+                    // Let default CSS max-height take over if closed
+                    if (!chatPopup.classList.contains('active')) {
+                        chatPopup.style.height = '';
+                    }
+                }
+            }, 150);
+        });
+    }
 
     function addMessage(text, sender) {
         const msgDiv = document.createElement('div');

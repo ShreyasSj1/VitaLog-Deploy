@@ -2683,8 +2683,8 @@ button.secondary-btn {
         right: 0;
         width: 100% !important;
         max-width: 100% !important;
-        height: 75vh !important;
-        max-height: 75vh !important;
+        height: 75dvh !important;
+        max-height: 75dvh !important;
         border-radius: 28px 28px 0 0 !important;
         border: none !important;
         border-top: 1px solid var(--border-color) !important;
