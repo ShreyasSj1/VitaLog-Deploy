@@ -2696,12 +2696,17 @@ button.secondary-btn {
         display: flex !important;
         visibility: hidden;
         pointer-events: none;
+        z-index: 100000 !important;
     }
 
     .chat-popup.active {
         transform: translateY(0);
         visibility: visible;
         pointer-events: auto;
+    }
+
+    .chat-popup .chat-input-area {
+        padding-bottom: calc(16px + env(safe-area-inset-bottom)) !important;
     }
 
     .chat-header {
