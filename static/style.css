@@ -2824,4 +2824,14 @@ button.secondary-btn {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+    /* Health Score Card Mobile Alignments */
+    .score-card {
+        align-items: stretch !important;
+    }
+
+    .score-badge-ring {
+        align-self: center !important;
+        margin-bottom: 12px;
+    }
 }
