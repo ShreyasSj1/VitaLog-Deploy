@@ -2721,3 +2721,31 @@ button.secondary-btn {
         border-radius: 2px;
     }
 }
+
+/* ================= SWIPER CONTROLS ================= */
+@media (max-width: 768px) {
+    .swiper-controls {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .swiper-calendar-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        font-size: 1.15rem;
+        border-radius: 14px;
+        height: 52px;
+        width: 52px;
+        box-shadow: var(--shadow-sm);
+        cursor: pointer;
+        transition: background-color 0.2s, border-color 0.2s;
+    }
+
+    .swiper-calendar-btn:active {
+        background: var(--border-color);
+    }
+}

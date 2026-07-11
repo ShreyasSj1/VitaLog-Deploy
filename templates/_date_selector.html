@@ -24,7 +24,20 @@
                 </div>
             {% endfor %}
         </div>
-        <a href="{{ request.path }}" class="swiper-today-btn">Today</a>
+        
+        <div class="swiper-controls">
+            <!-- Hidden native date input for picking arbitrary dates -->
+            <input 
+                type="date" 
+                id="hiddenDateInput" 
+                value="{{ selected_date }}" 
+                max="{{ max_date }}" 
+                style="position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none;"
+                onchange="selectSwiperDate(this.value)"
+            >
+            <button type="button" class="swiper-calendar-btn" onclick="openFullCalendar()">📅</button>
+            <a href="{{ request.path }}" class="swiper-today-btn">Today</a>
+        </div>
     </div>
 </div>
 
@@ -46,5 +59,16 @@ function selectSwiperDate(dateVal) {
     if (!input) return;
     input.value = dateVal;
     form.submit();
+}
+
+function openFullCalendar() {
+    const picker = document.getElementById('hiddenDateInput');
+    if (picker) {
+        if (typeof picker.showPicker === 'function') {
+            picker.showPicker();
+        } else {
+            picker.click(); // Fallback for older browsers
+        }
+    }
 }
 </script>
