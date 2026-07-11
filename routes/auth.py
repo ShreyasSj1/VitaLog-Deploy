@@ -21,9 +21,14 @@ def auth_firebase():
         decoded_token = firebase_auth.verify_id_token(id_token)
         uid = decoded_token['uid']
         email = decoded_token.get('email', '').strip().lower()
-        if not email:
-            return jsonify({"error": "Email is required"}), 400
+    except Exception as e:
+        print(f"Firebase token verification failed: {e}")
+        return jsonify({"error": "Invalid token"}), 401
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
         
+    try:
         # Look up user or create them
         user = get_user_by_email(email)
         if not user:
@@ -44,10 +49,10 @@ def auth_firebase():
             
         login_user(user)
         return jsonify({"success": True})
-        
     except Exception as e:
-        print(f"Firebase auth error: {e}")
-        return jsonify({"error": "Invalid token"}), 401
+        print(f"Database error during auth: {e}")
+        return jsonify({"error": "Database connection error"}), 500
+
 
 
 @auth_bp.route("/login", methods=["GET"])
