@@ -29,6 +29,23 @@ def is_admin_user():
 def health():
     return {"ok": True, "status": "healthy"}, 200
 
+@dashboard_bp.route("/service-worker.js")
+def service_worker():
+    from flask import current_app, make_response
+    response = make_response(current_app.send_static_file("service-worker.js"))
+    response.headers["Content-Type"] = "application/javascript"
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+@dashboard_bp.route("/manifest.json")
+def manifest():
+    from flask import current_app
+    return current_app.send_static_file("manifest.json")
+
+@dashboard_bp.route("/offline")
+def offline():
+    return render_template("offline.html")
+
 @dashboard_bp.route("/")
 @login_required
 def index():

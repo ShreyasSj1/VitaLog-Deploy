@@ -5,6 +5,7 @@ from flask import Flask, redirect, url_for, session, request
 from flask_login import LoginManager
 import firebase_admin
 from firebase_admin import credentials
+from sqlalchemy.exc import SQLAlchemyError
 
 from config import Config
 from extensions import db
@@ -59,9 +60,14 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(dashboard_bp)
 
 with app.app_context():
-    db.create_all()        # create any brand-new tables
-    run_migrations()       # ALTER existing tables (add new columns safely)
-    seed_lookup_tables()   # populate FoodItem / Exercise lookup tables
+    try:
+        db.create_all()        # create any brand-new tables
+        run_migrations()       # ALTER existing tables (add new columns safely)
+        seed_lookup_tables()   # populate FoodItem / Exercise lookup tables
+    except SQLAlchemyError as e:
+        # Do not crash the web process at import time if DB is temporarily unreachable.
+        # This keeps Render from restart-looping and makes debugging env/network issues easier.
+        print(f"[startup] Database bootstrap skipped: {e}")
 
 # ================= RUN =================
 if __name__ == "__main__":

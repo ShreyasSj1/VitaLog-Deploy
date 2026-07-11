@@ -8,6 +8,10 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+    <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
 </head>
 <body class="login-body">
     <div class="login-shell">
@@ -62,7 +66,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, fetchSignInMethodsForEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
         const firebaseConfig = {
             apiKey: "{{ firebase_api_key }}",
@@ -84,7 +88,9 @@
             
             // Map Firebase errors to human friendly messages
             let friendlyMsg = msg;
-            if (msg.includes('invalid-credential') || msg.includes('user-not-found') || msg.includes('wrong-password')) {
+            if (msg.includes('create-account-first')) {
+                friendlyMsg = "Create your account first.";
+            } else if (msg.includes('invalid-credential') || msg.includes('user-not-found') || msg.includes('wrong-password')) {
                 friendlyMsg = "Invalid email or password. Please try again.";
             } else if (msg.includes('popup-closed-by-user')) {
                 friendlyMsg = "Google sign in was cancelled.";
@@ -107,6 +113,15 @@
             try {
                 btn.disabled = true;
                 btn.textContent = "Logging in...";
+
+                const methods = await fetchSignInMethodsForEmail(auth, email.trim());
+                if (!methods.length) {
+                    showError("create-account-first");
+                    btn.disabled = false;
+                    btn.textContent = "Jump Back In";
+                    return;
+                }
+
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const idToken = await userCredential.user.getIdToken();
                 

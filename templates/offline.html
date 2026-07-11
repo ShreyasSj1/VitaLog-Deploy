@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline - VitalLog</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+    <div class="login-shell">
+        <div class="login-card" style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 20px;">📡</div>
+            <p class="eyebrow">VitalLog PWA</p>
+            <h1>You are currently offline.</h1>
+            <p class="login-copy" style="margin-bottom: 30px;">
+                We can't connect to the server right now. Check your internet connection and try reloading the page.
+            </p>
+            <button onclick="window.location.reload()" class="primary-btn" style="width: 100%;">
+                🔄 Retry Connection
+            </button>
+            <p class="auth-switch" style="margin-top: 25px;">
+                Your logged workouts, nutrition, sleep, and well-being activities will load instantly once you're back online.
+            </p>
+        </div>
+    </div>
+    <script>
+    if (localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark");
+    }
+    </script>
+</body>
+</html>
