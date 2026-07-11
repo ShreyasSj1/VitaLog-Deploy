@@ -40,6 +40,14 @@ def inject_firebase_config():
         firebase_project_id=app.config.get("FIREBASE_PROJECT_ID", "")
     )
 
+@app.context_processor
+def inject_week_dates():
+    from utils import normalize_selected_date, get_week_dates
+    selected_date = normalize_selected_date(request.args.get("date") or request.form.get("date"))
+    week = get_week_dates(selected_date)
+    return dict(week=week)
+
+
 # ================= FIREBASE ADMIN =================
 firebase_credentials = os.environ.get("FIREBASE_CREDENTIALS_BASE64")
 if firebase_credentials:

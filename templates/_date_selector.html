@@ -1,0 +1,50 @@
+<!-- DATE PICKER & WEEK SWIPER -->
+<div class="date-container">
+    <!-- Regular Date Picker (Fallback/Desktop) -->
+    <form method="get" class="date-control desktop-date-control">
+        <input
+            type="date"
+            name="date"
+            value="{{ selected_date }}"
+            max="{{ max_date }}"
+            onchange="this.form.submit()"
+            class="date-input"
+        >
+        <a href="{{ request.path }}" class="today-btn">Today</a>
+    </form>
+
+    <!-- Week Calendar Swiper (Mobile Optimized) -->
+    <div class="week-swiper-container">
+        <div class="week-swiper">
+            {% for day_val in week %}
+                {% set is_selected = (day_val == selected_date) %}
+                <div class="swiper-day-card {{ 'active' if is_selected else '' }}" onclick="selectSwiperDate('{{ day_val }}')">
+                    <span class="day-name" data-date="{{ day_val }}"></span>
+                    <span class="day-number">{{ day_val.split('-')[2] }}</span>
+                </div>
+            {% endfor %}
+        </div>
+        <a href="{{ request.path }}" class="swiper-today-btn">Today</a>
+    </div>
+</div>
+
+<script>
+(function() {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    document.querySelectorAll(".swiper-day-card .day-name").forEach(el => {
+        const dateStr = el.getAttribute("data-date");
+        if (!dateStr) return;
+        const d = new Date(dateStr + "T00:00:00");
+        el.innerText = days[d.getDay()];
+    });
+})();
+
+function selectSwiperDate(dateVal) {
+    const form = document.querySelector(".desktop-date-control");
+    if (!form) return;
+    const input = form.querySelector(".date-input");
+    if (!input) return;
+    input.value = dateVal;
+    form.submit();
+}
+</script>

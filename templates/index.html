@@ -24,18 +24,8 @@
 <div class="page-container">
   {% include "_flash_messages.html" %}
 
-  <!-- DATE PICKER -->
-  <form method="get" class="date-control">
-    <input
-        type="date"
-        name="date"
-        value="{{ selected_date }}"
-        max="{{ max_date }}"
-        onchange="this.form.submit()"
-        class="date-input"
-    >
-    <a href="{{ request.path }}" class="today-btn">Today</a>
-</form>
+  <!-- DATE SELECTOR -->
+  {% include "_date_selector.html" %}
 
 
   <!-- DASHBOARD SECTIONS -->
@@ -146,8 +136,18 @@
                 </div>
                 <div class="reasons-list">
                     {% for reason, type in health_reasons %}
-                        <div class="reason-item {{ type }}">
-                            {{ '✔' if type == 'good' else '✖' }} {{ reason }}
+                        <div class="reason-item-wrapper">
+                            <div class="reason-item {{ type }}" onclick="toggleReasonAdvice(this, '{{ reason }}')">
+                                <span class="reason-text">
+                                    {{ '✔' if type == 'good' else '✖' }} {{ reason }}
+                                </span>
+                                {% if type == 'bad' %}
+                                    <span class="reason-info-icon">ℹ️</span>
+                                {% endif %}
+                            </div>
+                            {% if type == 'bad' %}
+                                <div class="reason-advice" style="display: none;"></div>
+                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>
@@ -158,14 +158,20 @@
     <!-- WEEKLY TRENDS -->
     <div class="dashboard-section">
         <h2>Weekly Trends</h2>
-        <div class="card">
+        <div class="card chart-card-wrapper">
+            <!-- Tabs for Mobile View -->
+            <div class="chart-tabs">
+                <button type="button" class="chart-tab-btn active" onclick="switchChartTab('calories', this)">Calories</button>
+                <button type="button" class="chart-tab-btn" onclick="switchChartTab('gym', this)">Gym Burn</button>
+            </div>
+            
             <div class="chart-grid">
-                <div class="chart-block">
-                    <h4>Calories</h4>
+                <div class="chart-block active" id="chart-block-calories">
+                    <h4 class="desktop-only-title">Calories</h4>
                     <canvas id="weeklyCalories"></canvas>
                 </div>
-                <div class="chart-block">
-                    <h4>Gym Burn</h4>
+                <div class="chart-block" id="chart-block-gym">
+                    <h4 class="desktop-only-title">Gym Burn</h4>
                     <canvas id="weeklyGym"></canvas>
                 </div>
             </div>
@@ -311,6 +317,43 @@ new Chart(scoreCtx, {
       options: commonWeeklyOptions
     });
 })();
+
+function switchChartTab(chartType, buttonEl) {
+    const container = buttonEl.closest('.chart-card-wrapper');
+    container.querySelectorAll('.chart-tab-btn').forEach(btn => btn.classList.remove('active'));
+    buttonEl.classList.add('active');
+
+    container.querySelectorAll('.chart-block').forEach(block => block.classList.remove('active'));
+    const targetBlock = container.querySelector('#chart-block-' + chartType);
+    if (targetBlock) {
+        targetBlock.classList.add('active');
+    }
+}
+
+function toggleReasonAdvice(itemEl, reasonText) {
+    if (!itemEl.classList.contains('bad')) return;
+    
+    const wrapper = itemEl.closest('.reason-item-wrapper');
+    const adviceEl = wrapper.querySelector('.reason-advice');
+    if (!adviceEl) return;
+
+    const adviceMap = {
+        "Calorie limit exceeded": "You have consumed more calories than your daily goal. Consider doing a cardio workout (e.g. treadmill running, cycling, or elliptical) to burn off excess calories and balance your net intake!",
+        "Protein intake low": "You haven't reached your protein target for today. Head to the Food section and log a protein-dense food like Chicken Biryani, Grilled Chicken, Omelettes, or a Protein Shake!",
+        "Sugar limit exceeded": "You have exceeded your recommended daily sugar limit. Try to avoid processed snacks, sugary beverages, or desserts for the rest of today and stick to whole foods.",
+        "No workout logged": "No workout has been recorded for this date. Go to the Workout tab and log strength sets (like Bench Press or Squats) or cardio to keep your fitness streak active!",
+        "Short sleep duration": "You slept less than 7 hours. Try to get to bed a bit earlier tonight, limit screen time 1 hour before sleeping, and aim for a solid 8 hours of recovery!",
+        "No sleep data": "No sleep record is logged for today. Go to the Sleep tab to log your duration and quality rating so we can track your weekly recovery score!"
+    };
+
+    if (adviceEl.style.display === 'none') {
+        const adviceText = adviceMap[reasonText] || "Take a look at your daily logs to see where you can adjust your habits and achieve a healthier lifestyle.";
+        adviceEl.innerText = adviceText;
+        adviceEl.style.display = 'block';
+    } else {
+        adviceEl.style.display = 'none';
+    }
+}
 </script>
 
 </body>

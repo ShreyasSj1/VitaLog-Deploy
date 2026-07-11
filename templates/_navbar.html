@@ -137,6 +137,10 @@ if (!window.__sharedNavControls) {
             <button class="chat-send" id="chatSend">🚀</button>
         </div>
     </div>
+    <div class="chatbot-tooltip" id="chatTooltip">
+        <span>Coach is here! 🤖</span>
+        <button type="button" class="tooltip-close" id="tooltipClose">×</button>
+    </div>
     <button class="chatbot-toggle" id="chatToggle">💬</button>
 </div>
 
@@ -149,13 +153,32 @@ if (!window.__sharedNavControls) {
     const chatSend = document.getElementById('chatSend');
     const chatMessages = document.getElementById('chatMessages');
     const typingIndicator = document.getElementById('typingIndicator');
+    const chatTooltip = document.getElementById('chatTooltip');
+    const tooltipClose = document.getElementById('tooltipClose');
 
     if (!chatToggle) return;
+
+    // Show tooltip after 2.5s delay
+    let tooltipTimeout = setTimeout(() => {
+        if (chatTooltip && !chatPopup.classList.contains('active')) {
+            chatTooltip.classList.add('show');
+        }
+    }, 2500);
+
+    if (tooltipClose) {
+        tooltipClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            chatTooltip.classList.remove('show');
+            clearTimeout(tooltipTimeout);
+        });
+    }
 
     chatToggle.addEventListener('click', () => {
         chatPopup.classList.toggle('active');
         if (chatPopup.classList.contains('active')) {
             chatInput.focus();
+            if (chatTooltip) chatTooltip.classList.remove('show');
+            clearTimeout(tooltipTimeout);
         }
     });
 
@@ -207,4 +230,31 @@ if (!window.__sharedNavControls) {
     });
 })();
 </script>
+
+<div class="mobile-bottom-nav">
+    <a href="{{ url_for('dashboard.index') }}" class="mobile-nav-item {{ 'active' if active_page == 'dashboard' else '' }}">
+        <span class="mobile-nav-icon">🏠</span>
+        <span class="mobile-nav-label">Home</span>
+    </a>
+    <a href="{{ url_for('dashboard.food') }}" class="mobile-nav-item {{ 'active' if active_page == 'food' else '' }}">
+        <span class="mobile-nav-icon">🍎</span>
+        <span class="mobile-nav-label">Food</span>
+    </a>
+    <a href="{{ url_for('dashboard.gym') }}" class="mobile-nav-item {{ 'active' if active_page == 'gym' else '' }}">
+        <span class="mobile-nav-icon">🏋️</span>
+        <span class="mobile-nav-label">Workout</span>
+    </a>
+    <a href="{{ url_for('dashboard.sleep') }}" class="mobile-nav-item {{ 'active' if active_page == 'sleep' else '' }}">
+        <span class="mobile-nav-icon">🌙</span>
+        <span class="mobile-nav-label">Sleep</span>
+    </a>
+    <a href="{{ url_for('dashboard.wellbeing') }}" class="mobile-nav-item {{ 'active' if active_page == 'wellbeing' else '' }}">
+        <span class="mobile-nav-icon">🧘</span>
+        <span class="mobile-nav-label">Wellness</span>
+    </a>
+    <a href="{{ url_for('dashboard.report') }}" class="mobile-nav-item {{ 'active' if active_page == 'report' else '' }}">
+        <span class="mobile-nav-icon">📊</span>
+        <span class="mobile-nav-label">Report</span>
+    </a>
+</div>
 {% endif %}

@@ -19,20 +19,8 @@
 
 <div class="page-container">
     {% include "_flash_messages.html" %}
-    <!-- DATE CONTROL -->
-    <div class="date-control">
-        <form method="get">
-            <input
-                type="date"
-                name="date"
-                value="{{ selected_date }}"
-                max="{{ max_date }}"
-                onchange="this.form.submit()"
-                class="date-input"
-            >
-        </form>
-        <a href="/gym" class="today-btn">Today</a>
-    </div>
+    <!-- DATE SELECTOR -->
+    {% include "_date_selector.html" %}
 
     {% if streak > 0 %}
     <div class="streak-badge">🔥 {{ streak }} day gym streak</div>
