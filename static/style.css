@@ -2668,6 +2668,7 @@ button.secondary-btn {
     .chatbot-container {
         bottom: 80px !important;
         right: 16px !important;
+        z-index: 100000 !important;
     }
 
     .chatbot-tooltip {
