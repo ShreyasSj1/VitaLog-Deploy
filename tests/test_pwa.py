@@ -8,7 +8,7 @@ class TestPWARoutes:
         assert resp.status_code == 200
         assert resp.headers["Content-Type"] == "application/javascript"
         assert resp.headers["Service-Worker-Allowed"] == "/"
-        assert b"vitallog-cache-v1" in resp.data
+        assert b"vitallog-cache-v2" in resp.data
 
     def test_manifest_route(self, client):
         resp = client.get("/manifest.json")
