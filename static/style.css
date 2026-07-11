@@ -2813,4 +2813,15 @@ button.secondary-btn {
     .nav-user-mobile-avatar:active .nav-avatar {
         transform: scale(0.9);
     }
+
+    .mobile-username {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-main);
+        margin-right: 10px;
+        max-width: 130px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
