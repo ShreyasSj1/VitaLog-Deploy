@@ -16,7 +16,7 @@
     <!-- Week Calendar Swiper (Mobile Optimized) -->
     <div class="week-swiper-container">
         <div class="week-swiper">
-            {% for day_val in week %}
+            {% for day_val in week[-5:] %}
                 {% set is_selected = (day_val == selected_date) %}
                 <div class="swiper-day-card {{ 'active' if is_selected else '' }}" onclick="selectSwiperDate('{{ day_val }}')">
                     <span class="day-name" data-date="{{ day_val }}"></span>
