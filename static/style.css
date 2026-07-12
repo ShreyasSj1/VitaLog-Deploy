@@ -2846,11 +2846,11 @@ button.secondary-btn {
 .chat-suggestions {
     display: flex;
     gap: 8px;
-    padding: 8px 16px;
+    padding: 10px 16px;
     overflow-x: auto;
     white-space: nowrap;
     border-top: 1px solid var(--border-color);
-    background: rgba(148, 163, 184, 0.01);
+    background: rgba(148, 163, 184, 0.02);
     scrollbar-width: none;
 }
 
@@ -2861,23 +2861,27 @@ button.secondary-btn {
 .suggestion-chip {
     display: inline-flex;
     align-items: center;
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
+    background: rgba(148, 163, 184, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--text-main);
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 0.82rem;
-    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
-    transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.2px;
 }
 
 .suggestion-chip:hover {
-    background: var(--border-color);
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(217, 70, 239, 0.12));
     border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    transform: translateY(-1px);
 }
 
 .suggestion-chip:active {
-    transform: scale(0.95);
+    transform: scale(0.95) translateY(0);
 }
