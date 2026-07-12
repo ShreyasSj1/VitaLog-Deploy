@@ -140,6 +140,15 @@ if (!window.__sharedNavControls) {
             </div>
         </div>
         <div class="typing-indicator" id="typingIndicator">Coach is thinking...</div>
+        
+        <!-- Suggestions Chips -->
+        <div class="chat-suggestions" id="chatSuggestions">
+            <button type="button" class="suggestion-chip" data-query="How can I improve my diet today? 🍎">Diet Advice 🍎</button>
+            <button type="button" class="suggestion-chip" data-query="Tips for a better night's sleep? 🌙">Sleep Tips 🌙</button>
+            <button type="button" class="suggestion-chip" data-query="Suggest a quick home workout. 🏋️">Workout Plan 🏋️</button>
+            <button type="button" class="suggestion-chip" data-query="Explain my Health Score factors. 📈">Health Score 📈</button>
+        </div>
+
         <div class="chat-input-area">
             <input type="text" class="chat-input" id="chatInput" placeholder="Ask about your diet, workout..." autocomplete="off">
             <button class="chat-send" id="chatSend">🚀</button>
@@ -194,6 +203,18 @@ if (!window.__sharedNavControls) {
     chatClose.addEventListener('click', () => {
         chatPopup.classList.remove('active');
         chatPopup.style.height = '';
+    });
+
+    // Handle suggestion chip clicks
+    const suggestionChips = document.querySelectorAll('.suggestion-chip');
+    suggestionChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            const query = chip.getAttribute('data-query');
+            if (query) {
+                chatInput.value = query;
+                sendMessage();
+            }
+        });
     });
 
     function scrollMessagesToBottom() {

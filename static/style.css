@@ -2841,3 +2841,43 @@ button.secondary-btn {
         margin-bottom: 12px;
     }
 }
+
+/* ================= CHATBOT SUGGESTION CHIPS ================= */
+.chat-suggestions {
+    display: flex;
+    gap: 8px;
+    padding: 8px 16px;
+    overflow-x: auto;
+    white-space: nowrap;
+    border-top: 1px solid var(--border-color);
+    background: rgba(148, 163, 184, 0.01);
+    scrollbar-width: none;
+}
+
+.chat-suggestions::-webkit-scrollbar {
+    display: none;
+}
+
+.suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background-color 0.2s, border-color 0.2s, transform 0.1s;
+}
+
+.suggestion-chip:hover {
+    background: var(--border-color);
+    border-color: var(--accent-primary);
+}
+
+.suggestion-chip:active {
+    transform: scale(0.95);
+}
