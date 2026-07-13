@@ -199,7 +199,9 @@ if (!window.__sharedNavControls) {
             chatInput.focus();
             if (chatTooltip) chatTooltip.classList.remove('show');
             clearTimeout(tooltipTimeout);
-            setTimeout(scrollMessagesToBottom, 100);
+            loadChatHistory().then(() => {
+                setTimeout(scrollMessagesToBottom, 100);
+            });
         }
     });
 
@@ -259,6 +261,27 @@ if (!window.__sharedNavControls) {
         });
     }
 
+    let historyLoaded = false;
+
+    async function loadChatHistory() {
+        if (historyLoaded) return;
+        try {
+            const response = await fetch('/chat/history');
+            if (response.status === 401) return;
+            const data = await response.json();
+            
+            if (data.messages && data.messages.length > 0) {
+                chatMessages.innerHTML = '';
+                data.messages.forEach(msg => {
+                    addMessage(msg.content, msg.role === 'assistant' ? 'ai' : 'user');
+                });
+            }
+            historyLoaded = true;
+        } catch (error) {
+            console.error('Error loading chat history:', error);
+        }
+    }
+
     function addMessage(text, sender) {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', sender);
@@ -277,7 +300,7 @@ if (!window.__sharedNavControls) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         try {
-            const response = await fetch('/chatbot', {
+            const response = await fetch('/chat', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: message })

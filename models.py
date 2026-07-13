@@ -39,6 +39,7 @@ class User(UserMixin, db.Model):
     wellbeing_logs = db.relationship('WellbeingLog', backref='user', lazy=True, cascade="all, delete-orphan")
     gym_logs = db.relationship('GymLog', backref='user', lazy=True, cascade="all, delete-orphan")
     reset_tokens = db.relationship('PasswordResetToken', backref='user', lazy=True, cascade="all, delete-orphan")
+    chat_messages = db.relationship('ChatMessage', backref='user', lazy=True, cascade="all, delete-orphan")
 
     @property
     def goals(self):
@@ -61,6 +62,20 @@ class PasswordResetToken(db.Model):
     expires_at = db.Column(db.String(50), nullable=False)
     used_at = db.Column(db.String(50))
     created_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+
+
+class ChatMessage(db.Model):
+    __tablename__ = "chat_messages"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    role = db.Column(db.String(20), nullable=False)  # "user" or "assistant"
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=now_utc)
+    conversation_id = db.Column(db.String(100), nullable=True)
+
+    __table_args__ = (
+        db.Index('idx_chat_user_created', 'user_id', 'created_at'),
+    )
 
 
 class FoodLog(db.Model):

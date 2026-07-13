@@ -7,7 +7,7 @@ import groq
 from sqlalchemy import func
 
 from extensions import db
-from models import FoodLog, GymLog, SleepLog, WellbeingLog, User, FoodItem, Exercise
+from models import FoodLog, GymLog, SleepLog, WellbeingLog, User, FoodItem, Exercise, ChatMessage
 from utils import normalize_selected_date, get_week_dates, parse_optional_float, get_today
 from constants import FOOD_DATA, CARDIO_EXERCISES, EXERCISE_CATALOG, MUSCLE_FACTORS, INTENSITY_MAP
 from config import Config
@@ -688,9 +688,29 @@ def admin_users():
     )
 
 
-@dashboard_bp.route("/chatbot", methods=["POST"])
+@dashboard_bp.route("/chat/history", methods=["GET"])
 @login_required
-def chatbot():
+def chat_history():
+    # Fetch the 30 most recent messages, ordered descending so we get the latest ones
+    recent_msgs = ChatMessage.query.filter_by(user_id=current_user.id)\
+        .order_by(ChatMessage.created_at.desc())\
+        .limit(30)\
+        .all()
+    
+    # Reverse so they are returned in chronological order
+    recent_msgs.reverse()
+    
+    return jsonify({
+        "messages": [
+            {"role": msg.role, "content": msg.content}
+            for msg in recent_msgs
+        ]
+    })
+
+
+@dashboard_bp.route("/chat", methods=["POST"])
+@login_required
+def chat():
     if not groq_client:
         return jsonify({
             "reply": "AI Chatbot is not configured. Please set the GROQ_API_KEY environment variable."
@@ -701,6 +721,19 @@ def chatbot():
     if not user_message:
         return jsonify({"reply": "Please enter a message."}), 400
 
+    # 1. Save user message to database
+    user_msg_db = ChatMessage(user_id=current_user.id, role="user", content=user_message)
+    db.session.add(user_msg_db)
+    db.session.commit()
+
+    # 2. Retrieve recent conversation history for context (last 15 messages)
+    history = ChatMessage.query.filter_by(user_id=current_user.id)\
+        .order_by(ChatMessage.created_at.desc())\
+        .limit(15)\
+        .all()
+    history.reverse()
+
+    # 3. Retrieve stats and build context
     today = get_today().isoformat()
 
     food_cal = db.session.query(func.coalesce(func.sum(FoodLog.calories), 0)).filter(FoodLog.user_id == current_user.id, FoodLog.date == today).scalar() or 0
@@ -717,7 +750,10 @@ def chatbot():
     weight = current_user.weight or "Not set"
     sleep_hrs = sleep_row.hours if sleep_row else "Not logged"
 
-    context = (
+    system_prompt = (
+        "You are a fitness coach AI integrated into a fitness tracking app called VitalLog. "
+        "Give short, actionable, and encouraging advice. Avoid medical diagnosis. "
+        "Use the user's real data when relevant. Keep responses concise (under 3 sentences).\n\n"
         f"User Profile: Age: {age}, Height: {height}cm, Weight: {weight}kg.\n"
         f"Today's stats ({today}):\n"
         f"- Nutrition: consumed {food_cal} kcal and {food_pro}g protein.\n"
@@ -725,24 +761,27 @@ def chatbot():
         f"- Sleep: {sleep_hrs} hours logged."
     )
 
+    # 4. Format messages for Groq Completions API
+    api_messages = [
+        {"role": "system", "content": system_prompt}
+    ]
+    for msg in history:
+        api_messages.append({"role": msg.role, "content": msg.content})
+
     try:
         chat_completion = groq_client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a fitness coach AI integrated into a fitness tracking app called VitalLog. "
-                        "Give short, actionable, and encouraging advice. Avoid medical diagnosis. "
-                        "Use the user's real data when relevant. Keep responses concise (under 3 sentences)."
-                    ),
-                },
-                {"role": "user", "content": f"Context: {context}\n\nUser Question: {user_message}"},
-            ],
+            messages=api_messages,
             model="llama-3.3-70b-versatile",
             temperature=0.7,
             max_tokens=256,
         )
         reply = chat_completion.choices[0].message.content
+
+        # 5. Save assistant reply to database
+        assistant_msg_db = ChatMessage(user_id=current_user.id, role="assistant", content=reply)
+        db.session.add(assistant_msg_db)
+        db.session.commit()
+
         return jsonify({"reply": reply})
     except Exception as e:
         print(f"Chatbot Error: {e}")
