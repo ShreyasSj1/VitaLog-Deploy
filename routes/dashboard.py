@@ -8,7 +8,7 @@ from sqlalchemy import func
 
 from extensions import db
 from models import FoodLog, GymLog, SleepLog, WellbeingLog, User, FoodItem, Exercise
-from utils import normalize_selected_date, get_week_dates, parse_optional_float
+from utils import normalize_selected_date, get_week_dates, parse_optional_float, get_today
 from constants import FOOD_DATA, CARDIO_EXERCISES, EXERCISE_CATALOG, MUSCLE_FACTORS, INTENSITY_MAP
 from config import Config
 
@@ -148,7 +148,7 @@ def index():
         weekly_sleep=weekly_sleep,
         weekly_wellbeing=weekly_wellbeing,
         weekly_gym=weekly_gym,
-        max_date=date.today().isoformat(),
+        max_date=get_today().isoformat(),
     )
 
 
@@ -218,7 +218,7 @@ def food():
         food_logs=food_logs,
         food_data=FOOD_DATA,
         selected_date=selected_date,
-        max_date=date.today().isoformat(),
+        max_date=get_today().isoformat(),
     )
 
 
@@ -276,7 +276,7 @@ def sleep():
         active_page="sleep",
         sleep=sleep_data,
         selected_date=selected_date,
-        max_date=date.today().isoformat(),
+        max_date=get_today().isoformat(),
     )
 
 
@@ -317,7 +317,7 @@ def wellbeing():
         active_page="wellbeing",
         wellbeing_logs=logs,
         selected_date=selected_date,
-        max_date=date.today().isoformat(),
+        max_date=get_today().isoformat(),
     )
 
 
@@ -428,7 +428,7 @@ def gym():
     all_dates = db.session.query(GymLog.date).filter_by(user_id=current_user.id).distinct().order_by(GymLog.date.desc()).all()
     dates = [row.date for row in all_dates]
 
-    current_day = date.today()
+    current_day = get_today()
     if dates and (
         dates[0] == current_day.isoformat()
         or dates[0] == (current_day - timedelta(days=1)).isoformat()
@@ -452,7 +452,7 @@ def gym():
         selected_date=selected_date,
         streak=streak,
         last_workout=last_workout,
-        max_date=date.today().isoformat(),
+        max_date=get_today().isoformat(),
     )
 
 
@@ -519,7 +519,7 @@ def export_csv():
     from datetime import timedelta
     from flask import Response
 
-    today = date.today()
+    today = get_today()
     try:
         date_from = date.fromisoformat(request.args.get("from", (today - timedelta(days=30)).isoformat()))
         date_to   = date.fromisoformat(request.args.get("to",   today.isoformat()))
@@ -665,7 +665,7 @@ def report():
         weekly_sleep=weekly_sleep,
         weekly_wellbeing=weekly_wellbeing,
         weekly_gym=weekly_gym,
-        max_date=date.today().isoformat(),
+        max_date=get_today().isoformat(),
     )
 
 @dashboard_bp.route("/admin/users")
@@ -701,7 +701,7 @@ def chatbot():
     if not user_message:
         return jsonify({"reply": "Please enter a message."}), 400
 
-    today = date.today().isoformat()
+    today = get_today().isoformat()
 
     food_cal = db.session.query(func.coalesce(func.sum(FoodLog.calories), 0)).filter(FoodLog.user_id == current_user.id, FoodLog.date == today).scalar() or 0
     food_pro = db.session.query(func.coalesce(func.sum(FoodLog.protein), 0)).filter(FoodLog.user_id == current_user.id, FoodLog.date == today).scalar() or 0
