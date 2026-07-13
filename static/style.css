@@ -2850,7 +2850,7 @@ button.secondary-btn {
     overflow-x: auto;
     white-space: nowrap;
     border-top: 1px solid var(--border-color);
-    background: rgba(148, 163, 184, 0.02);
+    background: var(--card-bg);
     scrollbar-width: none;
 }
 
@@ -2861,25 +2861,25 @@ button.secondary-btn {
 .suggestion-chip {
     display: inline-flex;
     align-items: center;
-    background: rgba(148, 163, 184, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--text-main);
+    background: var(--card-bg);
+    border: 1.5px solid var(--accent-primary);
+    color: var(--accent-primary);
     padding: 7px 14px;
     border-radius: 20px;
     font-size: 0.8rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     letter-spacing: 0.2px;
 }
 
 .suggestion-chip:hover {
-    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(217, 70, 239, 0.12));
-    border-color: var(--accent-primary);
-    color: var(--accent-primary);
-    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.15);
+    background: rgba(139, 92, 246, 0.08);
+    border-color: var(--accent-secondary);
+    color: var(--accent-secondary);
     transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(139, 92, 246, 0.15);
 }
 
 .suggestion-chip:active {
