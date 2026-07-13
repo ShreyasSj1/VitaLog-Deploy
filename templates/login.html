@@ -1,21 +1,19 @@
+{% set seo_title = "Login | VitalLog Fitness Tracker" %}
+{% set seo_description = "Log in to track your calories, protein, sleep, workouts, and wellbeing with VitalLog's AI fitness coach." %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Get Back In The Zone</title>
+    {% include "_seo.html" %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#8b5cf6">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
     <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
 </head>
 <body class="login-body">
-    <div class="login-shell">
-        <div class="login-card">
+    <main class="login-shell">
+        <section class="login-card">
             <p class="eyebrow">Fitness Tracker</p>
             <h1>Get back in the zone.</h1>
             <p class="login-copy">
@@ -26,13 +24,13 @@
 
             <form id="login-form" class="auth-form">
                 <div class="form-row">
-                    <label>Email</label>
-                    <input type="email" name="email" required autocomplete="email">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required autocomplete="email">
                 </div>
 
                 <div class="form-row">
-                    <label>Password</label>
-                    <input type="password" name="password" required autocomplete="current-password">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="current-password">
                 </div>
 
                 <button type="submit" class="primary-btn login-btn">Jump Back In</button>
@@ -55,8 +53,8 @@
             <p class="auth-switch">
                 New here? <a href="{{ url_for('auth.register') }}">Create New Identity</a>
             </p>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <script>
     if (localStorage.getItem("theme") === "dark") {

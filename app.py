@@ -1,7 +1,7 @@
 import os
 import json
 import base64
-from flask import Flask, redirect, url_for, session, request
+from flask import Flask, redirect, url_for, session, request, Response, send_from_directory
 from flask_login import LoginManager
 import firebase_admin
 from firebase_admin import credentials
@@ -62,6 +62,65 @@ else:
         firebase_admin.initialize_app()
     except ValueError:
         pass
+
+# ================= SEO / UTILITY ROUTES =================
+@app.route("/robots.txt")
+def robots_txt():
+    host = request.host_url
+    content = (
+        "User-agent: *\n"
+        "Allow: /login\n"
+        "Allow: /register\n"
+        "Allow: /forgot-password\n"
+        "Disallow: /food\n"
+        "Disallow: /sleep\n"
+        "Disallow: /wellbeing\n"
+        "Disallow: /gym\n"
+        "Disallow: /report\n"
+        "Disallow: /profile\n"
+        "Disallow: /admin\n"
+        "Disallow: /api\n"
+        "Disallow: /logout\n"
+        "\n"
+        f"Sitemap: {host}sitemap.xml\n"
+    )
+    return Response(content, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    import datetime
+    host = request.host_url.rstrip('/')
+    today = datetime.date.today().isoformat()
+    
+    pages = [
+        {"loc": f"{host}/login", "changefreq": "monthly", "priority": "0.8"},
+        {"loc": f"{host}/register", "changefreq": "monthly", "priority": "0.8"},
+        {"loc": f"{host}/forgot-password", "changefreq": "monthly", "priority": "0.5"},
+    ]
+    
+    xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    xml_content += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+    for page in pages:
+        xml_content += '  <url>\n'
+        xml_content += f'    <loc>{page["loc"]}</loc>\n'
+        xml_content += f'    <lastmod>{today}</lastmod>\n'
+        xml_content += f'    <changefreq>{page["changefreq"]}</changefreq>\n'
+        xml_content += f'    <priority>{page["priority"]}</priority>\n'
+        xml_content += '  </url>\n'
+    xml_content += '</urlset>'
+    
+    return Response(xml_content, mimetype="application/xml")
+
+
+@app.route("/favicon.ico")
+def favicon():
+    return send_from_directory(
+        os.path.join(app.root_path, "static", "icons"),
+        "icon-192.png",
+        mimetype="image/png"
+    )
+
 
 # ================= BLUEPRINTS =================
 app.register_blueprint(auth_bp)

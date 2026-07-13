@@ -1,9 +1,9 @@
+{% set seo_title = "Register | VitalLog Fitness Tracker" %}
+{% set seo_description = "Create your account to start tracking calories, workouts, sleep, and wellbeing with your personal AI Fitness Coach." %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Your Transformation Starts Here</title>
+    {% include "_seo.html" %}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -14,8 +14,8 @@
     <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
 </head>
 <body class="login-body register-page">
-    <div class="login-shell">
-        <div class="login-card register-card">
+    <main class="login-shell">
+        <section class="login-card register-card">
             <p class="eyebrow">Fitness Tracker</p>
             <h1><span>Your transformation</span><span>starts here.</span></h1>
             <p class="login-copy">
@@ -26,23 +26,23 @@
 
             <form id="register-form" class="auth-form">
                 <div class="form-row">
-                    <label>Name</label>
-                    <input type="text" name="name" autocomplete="name">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" name="name" autocomplete="name">
                 </div>
 
                 <div class="form-row">
-                    <label>Email</label>
-                    <input type="email" name="email" required autocomplete="email">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required autocomplete="email">
                 </div>
 
                 <div class="form-row">
-                    <label>Password</label>
-                    <input type="password" name="password" required autocomplete="new-password">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required autocomplete="new-password">
                 </div>
 
                 <div class="form-row">
-                    <label>Confirm Password</label>
-                    <input type="password" name="confirm_password" required autocomplete="new-password">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required autocomplete="new-password">
                 </div>
 
                 <button type="submit" class="primary-btn login-btn">Create New Identity</button>
@@ -59,10 +59,10 @@
             </form>
 
             <p class="auth-switch">
-                Already have an account? <a href="{{ url_for('auth.login') }}">Sign in</a>
+                Already in the club? <a href="{{ url_for('auth.login') }}">Jump Back In</a>
             </p>
-        </div>
-    </div>
+        </section>
+    </main>
 
     <script>
     if (localStorage.getItem("theme") === "dark") {
