@@ -2885,11 +2885,3 @@ button.secondary-btn {
 .suggestion-chip:active {
     transform: scale(0.95) translateY(0);
 }
-
-/* ================= REPORT PAGE MOBILE CHARTS ================= */
-@media (max-width: 768px) {
-    .report-chart-grid .chart-block {
-        display: block !important;
-        margin-bottom: 24px;
-    }
-}

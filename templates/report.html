@@ -104,23 +104,31 @@
     <div class="card">
         <h2>Weekly Trends</h2>
 
-        <div class="chart-grid report-chart-grid">
-            <div class="chart-block">
+        <!-- Chart Tabs (Mobile Optimized) -->
+        <div class="chart-tabs">
+            <button class="chart-tab-btn active" onclick="switchReportTab('calorie')">Calories</button>
+            <button class="chart-tab-btn" onclick="switchReportTab('sleep')">Sleep</button>
+            <button class="chart-tab-btn" onclick="switchReportTab('wellbeing')">Well-being</button>
+            <button class="chart-tab-btn" onclick="switchReportTab('gym')">Gym Burn</button>
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-block active" id="report-calorie-block">
                 <h4>Calories</h4>
                 <canvas id="calorieChart"></canvas>
             </div>
 
-            <div class="chart-block">
+            <div class="chart-block" id="report-sleep-block">
                 <h4>Sleep (hrs)</h4>
                 <canvas id="sleepChart"></canvas>
             </div>
 
-            <div class="chart-block">
+            <div class="chart-block" id="report-wellbeing-block">
                 <h4>Well-being (min)</h4>
                 <canvas id="wellbeingChart"></canvas>
             </div>
 
-            <div class="chart-block">
+            <div class="chart-block" id="report-gym-block">
                 <h4>Gym Burn (kcal)</h4>
                 <canvas id="gymBurnChart"></canvas>
             </div>
@@ -274,6 +282,33 @@ new Chart(document.getElementById("gymBurnChart"), {
     },
     options: commonOptions
 });
+
+function switchReportTab(tabName) {
+    // 1. Toggle active class on tab buttons
+    const container = document.querySelector('.chart-tabs');
+    if (container) {
+        container.querySelectorAll('.chart-tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+    }
+    
+    // Find clicked button and mark active
+    const clickedBtn = event.currentTarget;
+    if (clickedBtn) clickedBtn.classList.add('active');
+
+    // 2. Toggle active class on chart blocks
+    const blocks = ['calorie', 'sleep', 'wellbeing', 'gym'];
+    blocks.forEach(name => {
+        const block = document.getElementById(`report-${name}-block`);
+        if (block) {
+            if (name === tabName) {
+                block.classList.add('active');
+            } else {
+                block.classList.remove('active');
+            }
+        }
+    });
+}
 </script>
 
 </body>
