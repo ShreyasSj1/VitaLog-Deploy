@@ -16,6 +16,18 @@ if ('serviceWorker' in navigator) {
 
 // ================= PWA MOBILE INSTALLER SYSTEM =================
 (function() {
+    // 0. Reset state for testing if URL query parameters contain test/reset flags
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('reset_pwa') || urlParams.has('clear_pwa') || urlParams.has('pwa_reset') || urlParams.has('test_install')) {
+            localStorage.removeItem('pwa_install_dismissed');
+            sessionStorage.removeItem('pwa_install_session_shown');
+            console.log('PWA installation state cleared for testing.');
+        }
+    } catch (e) {
+        console.warn('URL parsing failed:', e);
+    }
+
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (window.innerWidth <= 768);
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     
@@ -47,6 +59,27 @@ if ('serviceWorker' in navigator) {
     const markShownThisSession = () => {
         sessionStorage.setItem('pwa_install_session_shown', 'true');
     };
+
+    // Check if the app is already installed via navigator.getInstalledRelatedApps()
+    const checkAlreadyInstalled = () => {
+        if ('getInstalledRelatedApps' in navigator) {
+            navigator.getInstalledRelatedApps().then(relatedApps => {
+                if (relatedApps.length > 0) {
+                    console.log('VitalLog is already installed.');
+                    // Hide any installation UI elements
+                    const floatingBtn = document.getElementById('pwaFloatingBtn');
+                    if (floatingBtn) floatingBtn.style.display = 'none';
+                    const container = document.getElementById('pwa-install-container');
+                    if (container) container.classList.remove('active');
+                }
+            }).catch(err => {
+                console.warn('Failed to check getInstalledRelatedApps:', err);
+            });
+        }
+    };
+
+    // Run the check on load
+    checkAlreadyInstalled();
 
     // UI Helpers
     const showInstallSheet = (type) => {
