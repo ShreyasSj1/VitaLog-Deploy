@@ -1,0 +1,65 @@
+<!-- PWA Install Banner / Bottom Sheet -->
+<div id="pwa-install-container" class="pwa-install-container">
+    <div class="pwa-install-overlay" id="pwaOverlay"></div>
+    <div class="pwa-install-sheet" id="pwaSheet">
+        <div class="pwa-sheet-handle"></div>
+        <div class="pwa-sheet-header">
+            <img class="pwa-app-logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="VitalLog Logo">
+            <div class="pwa-app-meta">
+                <h3>Install VitalLog</h3>
+                <p>Track your health & fitness seamlessly</p>
+            </div>
+        </div>
+        <div class="pwa-sheet-body">
+            <ul class="pwa-benefits-list">
+                <li><span class="benefit-icon">⚡</span> <span><strong>Faster launch</strong> from home screen</span></li>
+                <li><span class="benefit-icon">🖥️</span> <span><strong>Full-screen</strong> immersive experience</span></li>
+                <li><span class="benefit-icon">📱</span> <span><strong>Home screen icon</strong> for quick access</span></li>
+                <li><span class="benefit-icon">🚀</span> <span><strong>Optimized performance</strong> & offline use</span></li>
+            </ul>
+            
+            <!-- Standard Install Prompt (for beforeinstallprompt support) -->
+            <div class="pwa-action-prompt" id="pwaActionPrompt">
+                <button class="primary-btn pwa-install-btn" id="pwaInstallBtn">Install Now</button>
+                <button class="secondary-btn pwa-cancel-btn" id="pwaCancelBtn">Maybe Later</button>
+            </div>
+            
+            <!-- iOS Safari Specific Instructions -->
+            <div class="pwa-ios-instructions" id="pwaIosInstructions" style="display: none;">
+                <p class="ios-instruction-title">To install VitalLog on your iPhone:</p>
+                <ol class="ios-steps">
+                    <li>Tap the Share button <span class="ios-icon">⎋</span> at the bottom of the screen.</li>
+                    <li>Scroll down and select <strong>Add to Home Screen</strong>.</li>
+                    <li>Tap <strong>Add</strong> in the top-right corner.</li>
+                </ol>
+                <button class="secondary-btn pwa-cancel-btn" id="pwaIosCloseBtn" style="margin-top: 15px; width: 100%;">Got it</button>
+            </div>
+
+            <!-- Generic Android fallback instructions -->
+            <div class="pwa-android-instructions" id="pwaAndroidInstructions" style="display: none;">
+                <p class="ios-instruction-title">To install VitalLog:</p>
+                <div class="browser-specific-fallback" id="androidChromeFallback" style="display: none; margin-bottom: 15px;">
+                    Tap the menu button <span class="fallback-icon">⋮</span> at the top-right and select <strong>Install app</strong>.
+                </div>
+                <div class="browser-specific-fallback" id="androidSamsungFallback" style="display: none; margin-bottom: 15px;">
+                    Tap the menu button <span class="fallback-icon">☰</span> at the bottom-right, then select <strong>Add page to</strong> → <strong>Home screen</strong>.
+                </div>
+                <button class="secondary-btn pwa-cancel-btn" id="pwaAndroidCloseBtn" style="width: 100%;">Got it</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Floating Install Button -->
+<button class="pwa-floating-btn" id="pwaFloatingBtn" aria-label="Install VitalLog App" style="display: none;">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+    </svg>
+</button>
+
+<!-- Installation Success Toast -->
+<div class="pwa-toast" id="pwaToast">
+    <span>🎉 VitalLog has been installed successfully!</span>
+</div>
