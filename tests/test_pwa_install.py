@@ -14,7 +14,7 @@ class TestPWAInstallUI:
         # Verify app logo and text references
         assert 'alt="VitalLog Logo"' in html
         assert 'Install VitalLog' in html
-        assert 'Faster launch' in html
+        assert 'Fast access' in html
         
         # Verify buttons exist
         assert 'id="pwaInstallBtn"' in html

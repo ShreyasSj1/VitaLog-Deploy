@@ -279,11 +279,7 @@ if ('serviceWorker' in navigator) {
             });
         }
 
-        if (overlay) {
-            overlay.addEventListener('click', () => {
-                hideInstallSheet();
-            });
-        }
+
 
         if (iosCloseBtn) {
             iosCloseBtn.addEventListener('click', () => {
