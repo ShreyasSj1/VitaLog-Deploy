@@ -127,11 +127,20 @@ if ('serviceWorker' in navigator) {
         deferredPrompt = e;
         beforeInstallPromptFired = true;
 
+        const container = document.getElementById('pwa-install-container');
+        const isSheetOpen = container && container.classList.contains('active');
+
+        // If the sheet is already open (e.g. showing manual fallback guides), upgrade it to native prompt immediately
+        if (isSheetOpen) {
+            showInstallSheet('native');
+            return;
+        }
+
         // Automatically show installer UI on page load if not dismissed and not shown this session
         if (!isDismissed() && !isShownThisSession()) {
             setTimeout(() => {
                 showInstallSheet('native');
-            }, 2000);
+            }, 1500);
         } else {
             // Show the floating button so they can still trigger manually
             const floatingBtn = document.getElementById('pwaFloatingBtn');
@@ -144,6 +153,16 @@ if ('serviceWorker' in navigator) {
 
     // 2. Delayed detection for Safari (iOS) and Android fallback browsers
     window.addEventListener('load', () => {
+        // Clear session storage if the page was refreshed/reloaded
+        try {
+            const navEntries = performance.getEntriesByType('navigation');
+            if (navEntries.length > 0 && navEntries[0].type === 'reload') {
+                sessionStorage.removeItem('pwa_install_session_shown');
+            }
+        } catch (e) {
+            console.warn('Navigation timing not supported:', e);
+        }
+
         setTimeout(() => {
             if (beforeInstallPromptFired) return; // Handled by native prompt listener
 
@@ -175,7 +194,7 @@ if ('serviceWorker' in navigator) {
                     }
                 }
             }
-        }, 3000);
+        }, 4000);
     });
 
     // 3. Track successful installation
