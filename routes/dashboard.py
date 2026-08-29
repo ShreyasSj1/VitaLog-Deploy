@@ -10,6 +10,7 @@ from extensions import db
 from models import FoodLog, GymLog, SleepLog, WellbeingLog, User, FoodItem, Exercise, ChatMessage
 from utils import normalize_selected_date, get_week_dates, parse_optional_float, get_today
 from constants import FOOD_DATA, CARDIO_EXERCISES, EXERCISE_CATALOG, MUSCLE_FACTORS, INTENSITY_MAP
+from daily_challenges import get_daily_challenge, is_challenge_completed
 from config import Config
 
 dashboard_bp = Blueprint("dashboard", __name__)
@@ -129,6 +130,9 @@ def index():
 
     score = max(0, min(100, score))
 
+    daily_challenge = get_daily_challenge(selected_date)
+    challenge_completed = is_challenge_completed(current_user.id, selected_date, daily_challenge["title"])
+
     return render_template(
         "index.html",
         active_page="dashboard",
@@ -148,6 +152,8 @@ def index():
         weekly_sleep=weekly_sleep,
         weekly_wellbeing=weekly_wellbeing,
         weekly_gym=weekly_gym,
+        daily_challenge=daily_challenge,
+        challenge_completed=challenge_completed,
         max_date=get_today().isoformat(),
     )
 
@@ -444,6 +450,9 @@ def gym():
 
     last_workout = GymLog.query.filter_by(user_id=current_user.id).order_by(GymLog.id.desc()).first()
 
+    daily_challenge = get_daily_challenge(selected_date)
+    challenge_completed = is_challenge_completed(current_user.id, selected_date, daily_challenge["title"])
+
     return render_template(
         "gym.html",
         active_page="gym",
@@ -452,8 +461,61 @@ def gym():
         selected_date=selected_date,
         streak=streak,
         last_workout=last_workout,
+        daily_challenge=daily_challenge,
+        challenge_completed=challenge_completed,
         max_date=get_today().isoformat(),
     )
+
+
+@dashboard_bp.route("/gym/complete-challenge", methods=["POST"])
+@login_required
+def complete_challenge():
+    data = request.get_json(silent=True) or request.form
+    selected_date = normalize_selected_date(data.get("date"))
+    challenge = get_daily_challenge(selected_date)
+
+    already_done = is_challenge_completed(current_user.id, selected_date, challenge["title"])
+    if already_done:
+        return jsonify({
+            "success": True,
+            "already_completed": True,
+            "message": "Challenge already completed for today!"
+        }), 200
+
+    elapsed_seconds = data.get("elapsed_seconds")
+    duration_mins = challenge["duration"]
+    if elapsed_seconds:
+        try:
+            duration_mins = max(1.0, round(float(elapsed_seconds) / 60.0, 1))
+        except (ValueError, TypeError):
+            duration_mins = challenge["duration"]
+
+    exercise_name = f"Daily Challenge: {challenge['title']}"
+    log_entry = GymLog(
+        user_id=current_user.id,
+        date=selected_date,
+        muscle=challenge["muscle"],
+        exercise=exercise_name,
+        sets=1,
+        reps=1,
+        weight=0.0,
+        speed=0.0,
+        incline=0.0,
+        duration=duration_mins,
+        intensity="High",
+        calories=challenge["calories"]
+    )
+    db.session.add(log_entry)
+    db.session.commit()
+
+    return jsonify({
+        "success": True,
+        "already_completed": False,
+        "calories": challenge["calories"],
+        "duration": duration_mins,
+        "title": challenge["title"],
+        "message": f"🎉 {challenge['title']} completed! +{int(challenge['calories'])} kcal burned."
+    }), 200
 
 
 @dashboard_bp.route("/gym/delete/<int:item_id>", methods=["POST"])

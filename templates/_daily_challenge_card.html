@@ -1,0 +1,241 @@
+<!-- DAILY WORKOUT CHALLENGE (WOD) COMPONENT -->
+{% if daily_challenge %}
+<div class="daily-challenge-card {{ 'completed' if challenge_completed else '' }}" id="dailyChallengeCard">
+    <div class="challenge-card-glow"></div>
+    <div class="challenge-header">
+        <div class="challenge-tag-row">
+            <span class="challenge-badge">⚡ DAILY CHALLENGE</span>
+            <span class="challenge-muscle-pill">{{ daily_challenge.muscle }}</span>
+            <span class="challenge-diff-pill">{{ daily_challenge.difficulty }}</span>
+        </div>
+        <div class="challenge-status-indicator" id="challengeStatusBadge">
+            {% if challenge_completed %}
+                <span class="status-completed-pill">✅ Completed</span>
+            {% else %}
+                <span class="status-ready-pill">🔥 Today's WOD</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="challenge-body">
+        <div class="challenge-icon-box">{{ daily_challenge.icon }}</div>
+        <div class="challenge-main-info">
+            <h3 class="challenge-title">{{ daily_challenge.title }}</h3>
+            <p class="challenge-tagline">{{ daily_challenge.tagline }}</p>
+            <div class="challenge-metrics-row">
+                <span class="challenge-metric"><i class="metric-icon">🎯</i> <strong>{{ daily_challenge.target }}</strong></span>
+                <span class="challenge-metric"><i class="metric-icon">🔥</i> ~{{ daily_challenge.calories | int }} kcal</span>
+                <span class="challenge-metric"><i class="metric-icon">⏱️</i> ~{{ daily_challenge.duration | int }} min</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="challenge-footer">
+        {% if challenge_completed %}
+            <button type="button" class="challenge-action-btn completed-btn" onclick="openChallengeModal()">
+                <span>Review Challenge Details</span>
+            </button>
+        {% else %}
+            <button type="button" class="challenge-action-btn primary-pulse-btn" id="startChallengeBtn" onclick="openChallengeModal()">
+                <span>Start Today's Challenge ➔</span>
+            </button>
+        {% endif %}
+    </div>
+</div>
+
+<!-- DAILY CHALLENGE INTERACTIVE MODAL -->
+<div class="challenge-modal-overlay" id="challengeModalOverlay" style="display: none;">
+    <div class="challenge-modal-card">
+        <button type="button" class="challenge-modal-close" onclick="closeChallengeModal()" aria-label="Close">✕</button>
+        
+        <div class="challenge-modal-header">
+            <div class="modal-icon-wrap">{{ daily_challenge.icon }}</div>
+            <div>
+                <span class="challenge-badge">DAILY WORKOUT CHALLENGE</span>
+                <h2>{{ daily_challenge.title }}</h2>
+                <p class="text-muted">{{ daily_challenge.tagline }}</p>
+            </div>
+        </div>
+
+        <div class="challenge-target-box">
+            <div class="target-headline">
+                <span>Target Goal</span>
+                <strong>{{ daily_challenge.target }}</strong>
+            </div>
+            <div class="target-subtags">
+                <span>🔥 +{{ daily_challenge.calories | int }} kcal</span>
+                <span>⏱️ ~{{ daily_challenge.duration | int }} mins</span>
+                <span>💪 {{ daily_challenge.muscle }} Focus</span>
+            </div>
+        </div>
+
+        <div class="challenge-instructions-list">
+            <h4>Routine Breakdown:</h4>
+            <ul>
+                {% for step in daily_challenge.instructions %}
+                <li>{{ step }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Interactive Stopwatch / Timer -->
+        <div class="challenge-timer-section">
+            <div class="challenge-timer-display" id="challengeTimerDisplay">00:00</div>
+            <div class="challenge-timer-controls">
+                <button type="button" class="timer-btn" id="timerToggleBtn" onclick="toggleChallengeTimer()">▶ Start Timer</button>
+                <button type="button" class="timer-btn secondary" onclick="resetChallengeTimer()">↺ Reset</button>
+            </div>
+        </div>
+
+        <!-- Complete & Claim CTA -->
+        <div class="challenge-modal-actions">
+            {% if challenge_completed %}
+                <button type="button" class="primary-btn complete-challenge-btn" disabled style="opacity: 0.8; cursor: default;">
+                    ✅ Challenge Completed for Today
+                </button>
+            {% else %}
+                <button type="button" class="primary-btn complete-challenge-btn" id="claimChallengeBtn" onclick="submitChallengeCompletion('{{ selected_date }}')">
+                    🔥 Mark as Done & Log Calories
+                </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Canvas Confetti Library (Lightweight CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+
+<script>
+let challengeTimerInterval = null;
+let challengeTimerSeconds = 0;
+let isChallengeTimerRunning = false;
+
+function openChallengeModal() {
+    const modal = document.getElementById('challengeModalOverlay');
+    if (modal) {
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeChallengeModal() {
+    const modal = document.getElementById('challengeModalOverlay');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+}
+
+function toggleChallengeTimer() {
+    const btn = document.getElementById('timerToggleBtn');
+    if (isChallengeTimerRunning) {
+        clearInterval(challengeTimerInterval);
+        isChallengeTimerRunning = false;
+        if (btn) btn.textContent = '▶ Resume Timer';
+    } else {
+        isChallengeTimerRunning = true;
+        if (btn) btn.textContent = '⏸ Pause Timer';
+        challengeTimerInterval = setInterval(() => {
+            challengeTimerSeconds++;
+            updateTimerDisplay();
+        }, 1000);
+    }
+}
+
+function resetChallengeTimer() {
+    clearInterval(challengeTimerInterval);
+    isChallengeTimerRunning = false;
+    challengeTimerSeconds = 0;
+    updateTimerDisplay();
+    const btn = document.getElementById('timerToggleBtn');
+    if (btn) btn.textContent = '▶ Start Timer';
+}
+
+function updateTimerDisplay() {
+    const display = document.getElementById('challengeTimerDisplay');
+    if (!display) return;
+    const mins = Math.floor(challengeTimerSeconds / 60);
+    const secs = challengeTimerSeconds % 60;
+    display.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+async function submitChallengeCompletion(dateStr) {
+    const btn = document.getElementById('claimChallengeBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Logging Workout...';
+    }
+
+    try {
+        const response = await fetch('/gym/complete-challenge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: dateStr,
+                elapsed_seconds: challengeTimerSeconds
+            })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            // Trigger Confetti Celebration!
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 90,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+                setTimeout(() => {
+                    confetti({
+                        particleCount: 60,
+                        angle: 60,
+                        spread: 55,
+                        origin: { x: 0 }
+                    });
+                    confetti({
+                        particleCount: 60,
+                        angle: 120,
+                        spread: 55,
+                        origin: { x: 1 }
+                    });
+                }, 250);
+            }
+
+            if (btn) {
+                btn.textContent = '✅ Challenge Completed!';
+                btn.style.background = 'var(--accent-success, #10b981)';
+            }
+
+            const card = document.getElementById('dailyChallengeCard');
+            if (card) card.classList.add('completed');
+
+            const badge = document.getElementById('challengeStatusBadge');
+            if (badge) badge.innerHTML = '<span class="status-completed-pill">✅ Completed</span>';
+
+            const startBtn = document.getElementById('startChallengeBtn');
+            if (startBtn) {
+                startBtn.className = 'challenge-action-btn completed-btn';
+                startBtn.innerHTML = '<span>Review Challenge Details</span>';
+            }
+
+            setTimeout(() => {
+                closeChallengeModal();
+                window.location.reload();
+            }, 1400);
+        } else {
+            alert(data.message || 'Error completing challenge');
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '🔥 Mark as Done & Log Calories';
+            }
+        }
+    } catch (err) {
+        console.error('Error logging challenge:', err);
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '🔥 Mark as Done & Log Calories';
+        }
+    }
+}
+</script>
+{% endif %}
