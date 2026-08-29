@@ -196,7 +196,9 @@ if (!window.__sharedNavControls) {
     chatToggle.addEventListener('click', () => {
         chatPopup.classList.toggle('active');
         if (chatPopup.classList.contains('active')) {
-            chatInput.focus();
+            if (window.innerWidth > 768) {
+                chatInput.focus();
+            }
             if (chatTooltip) chatTooltip.classList.remove('show');
             clearTimeout(tooltipTimeout);
             loadChatHistory().then(() => {
