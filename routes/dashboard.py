@@ -840,27 +840,31 @@ def chat():
     for msg in history:
         api_messages.append({"role": msg.role, "content": msg.content})
 
-    model_name = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+    preferred_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-20b")
+    candidate_models = [preferred_model]
+    for fallback in ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "qwen/qwen3.8-27b"]:
+        if fallback not in candidate_models:
+            candidate_models.append(fallback)
 
     try:
-        try:
-            chat_completion = client.chat.completions.create(
-                messages=api_messages,
-                model=model_name,
-                temperature=0.7,
-                max_tokens=256,
-            )
-        except Exception as api_err:
-            if model_name != "llama-3.1-8b-instant":
-                print(f"Chatbot model {model_name} failed ({api_err}), falling back to llama-3.1-8b-instant")
+        chat_completion = None
+        last_api_err = None
+        for model in candidate_models:
+            try:
                 chat_completion = client.chat.completions.create(
                     messages=api_messages,
-                    model="llama-3.1-8b-instant",
+                    model=model,
                     temperature=0.7,
                     max_tokens=256,
                 )
-            else:
-                raise api_err
+                if chat_completion and chat_completion.choices:
+                    break
+            except Exception as model_err:
+                last_api_err = model_err
+                print(f"Chatbot model '{model}' failed: {model_err}. Trying fallback...")
+
+        if not chat_completion or not chat_completion.choices:
+            raise last_api_err or Exception("All AI model candidates failed.")
 
         reply = chat_completion.choices[0].message.content
 
