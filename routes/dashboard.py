@@ -20,6 +20,15 @@ groq_client = None
 if GROQ_API_KEY:
     groq_client = groq.Groq(api_key=GROQ_API_KEY)
 
+def get_groq_client():
+    global groq_client
+    if groq_client is not None:
+        return groq_client
+    api_key = os.environ.get("GROQ_API_KEY") or Config.GROQ_API_KEY
+    if api_key:
+        groq_client = groq.Groq(api_key=api_key)
+    return groq_client
+
 def is_cardio_exercise(exercise_name):
     return exercise_name in CARDIO_EXERCISES
 
@@ -773,7 +782,8 @@ def chat_history():
 @dashboard_bp.route("/chat", methods=["POST"])
 @login_required
 def chat():
-    if not groq_client:
+    client = get_groq_client()
+    if not client:
         return jsonify({
             "reply": "AI Chatbot is not configured. Please set the GROQ_API_KEY environment variable."
         }), 503
@@ -830,13 +840,28 @@ def chat():
     for msg in history:
         api_messages.append({"role": msg.role, "content": msg.content})
 
+    model_name = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+
     try:
-        chat_completion = groq_client.chat.completions.create(
-            messages=api_messages,
-            model="llama-3.3-70b-versatile",
-            temperature=0.7,
-            max_tokens=256,
-        )
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=api_messages,
+                model=model_name,
+                temperature=0.7,
+                max_tokens=256,
+            )
+        except Exception as api_err:
+            if model_name != "llama-3.1-8b-instant":
+                print(f"Chatbot model {model_name} failed ({api_err}), falling back to llama-3.1-8b-instant")
+                chat_completion = client.chat.completions.create(
+                    messages=api_messages,
+                    model="llama-3.1-8b-instant",
+                    temperature=0.7,
+                    max_tokens=256,
+                )
+            else:
+                raise api_err
+
         reply = chat_completion.choices[0].message.content
 
         # 5. Save assistant reply to database
