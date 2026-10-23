@@ -72,8 +72,19 @@
             projectId: "{{ firebase_project_id }}"
         };
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
+        let app = null;
+        let auth = null;
+        let firebaseReady = false;
+
+        if (firebaseConfig.apiKey && firebaseConfig.apiKey.trim() !== "") {
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                firebaseReady = true;
+            } catch (err) {
+                console.error("Firebase initialization failed:", err);
+            }
+        }
 
         function showError(msg) {
             let stack = document.querySelector('.flash-stack');
@@ -81,7 +92,11 @@
                 stack = document.createElement('div');
                 stack.className = 'flash-stack';
                 const copy = document.querySelector('.login-copy');
-                copy.parentNode.insertBefore(stack, copy.nextSibling);
+                if (copy && copy.parentNode) {
+                    copy.parentNode.insertBefore(stack, copy.nextSibling);
+                } else {
+                    document.querySelector('.login-card')?.prepend(stack);
+                }
             }
             
             // Map Firebase errors to human friendly messages
@@ -92,6 +107,12 @@
                 friendlyMsg = "Invalid email or password. Please try again.";
             } else if (msg.includes('popup-closed-by-user')) {
                 friendlyMsg = "Google sign in was cancelled.";
+            } else if (msg.includes('popup-blocked')) {
+                friendlyMsg = "Google sign in popup was blocked by your browser. Please allow popups for this site.";
+            } else if (msg.includes('unauthorized-domain')) {
+                friendlyMsg = "Domain '" + window.location.hostname + "' is not authorized in Firebase Console. Please add it in Firebase Console > Authentication > Settings > Authorized Domains.";
+            } else if (msg.includes('operation-not-allowed')) {
+                friendlyMsg = "Google Sign-In is not enabled in Firebase Console. Please enable it in Authentication > Sign-in method.";
             } else if (msg.includes('too-many-requests')) {
                 friendlyMsg = "Too many failed attempts. Please try again later.";
             } else if (msg.includes('network-request-failed')) {
@@ -104,6 +125,10 @@
         const form = document.getElementById('login-form');
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            if (!firebaseReady || !auth) {
+                showError("Authentication service is not configured. Missing Firebase credentials on the server.");
+                return;
+            }
             const email = form.email.value;
             const password = form.password.value;
             const btn = form.querySelector('button[type="submit"]');
@@ -125,7 +150,7 @@
                     window.location.href = "{{ url_for('dashboard.index') }}";
                 } else {
                     const data = await response.json();
-                    showError("Server error: " + data.error);
+                    showError("Server error: " + (data.error || "Authentication failed"));
                     btn.disabled = false;
                     btn.textContent = "Jump Back In";
                 }
@@ -138,8 +163,13 @@
 
         // Google Authentication
         const googleProvider = new GoogleAuthProvider();
+        googleProvider.setCustomParameters({ prompt: 'select_account' });
         const googleBtn = document.getElementById('google-login-btn');
         googleBtn.addEventListener('click', async () => {
+            if (!firebaseReady || !auth) {
+                showError("Google Sign-In is not configured. Missing FIREBASE_API_KEY on the server.");
+                return;
+            }
             try {
                 googleBtn.disabled = true;
                 const originalText = googleBtn.innerHTML;
@@ -161,7 +191,7 @@
                     window.location.href = "{{ url_for('dashboard.index') }}";
                 } else {
                     const data = await response.json();
-                    showError("Server error: " + data.error);
+                    showError("Server error: " + (data.error || "Google authentication failed"));
                     googleBtn.disabled = false;
                     googleBtn.innerHTML = originalText;
                 }

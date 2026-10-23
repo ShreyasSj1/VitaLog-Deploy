@@ -12,6 +12,8 @@ os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 # Disable Firebase for tests
 os.environ.setdefault("FIREBASE_CREDENTIALS_BASE64", "")
+# Disable external Groq API calls in test runner so tests run hermetically offline
+os.environ["GROQ_API_KEY"] = ""
 
 import firebase_admin  # noqa: E402
 

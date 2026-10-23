@@ -1,6 +1,11 @@
 import os
 import json
 import base64
+from dotenv import load_dotenv
+
+# Load environment variables from .env
+load_dotenv()
+
 from flask import Flask, redirect, url_for, session, request, Response, send_from_directory
 from flask_login import LoginManager
 import firebase_admin
@@ -43,10 +48,11 @@ def apply_security_headers(response):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     csp = (
         "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com https://*.firebaseapp.com; "
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
         "font-src 'self' https://fonts.gstatic.com; "
-        "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com; "
+        "frame-src 'self' https://*.firebaseapp.com https://*.firebaseio.com https://accounts.google.com; "
+        "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://identitytoolkit.googleapis.com https://accounts.google.com; "
         "img-src 'self' data: https:; "
         "frame-ancestors 'self';"
     )
@@ -77,19 +83,34 @@ def inject_common_context():
 
 
 # ================= FIREBASE ADMIN =================
-firebase_credentials = os.environ.get("FIREBASE_CREDENTIALS_BASE64")
-if firebase_credentials:
-    cred_json = base64.b64decode(firebase_credentials).decode("utf-8")
-    cred = credentials.Certificate(json.loads(cred_json))
-    firebase_admin.initialize_app(cred)
-elif os.path.exists("firebase-adminsdk.json"):
-    cred = credentials.Certificate("firebase-adminsdk.json")
-    firebase_admin.initialize_app(cred)
-else:
-    try:
-        firebase_admin.initialize_app()
-    except ValueError:
-        pass
+if not firebase_admin._apps:
+    firebase_credentials = os.environ.get("FIREBASE_CREDENTIALS_BASE64")
+    if firebase_credentials:
+        try:
+            cred_json = base64.b64decode(firebase_credentials).decode("utf-8")
+            cred = credentials.Certificate(json.loads(cred_json))
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            print(f"Warning: Failed to initialize Firebase Admin with credentials: {e}")
+            try:
+                firebase_admin.initialize_app()
+            except ValueError:
+                pass
+    elif os.path.exists("firebase-adminsdk.json"):
+        try:
+            cred = credentials.Certificate("firebase-adminsdk.json")
+            firebase_admin.initialize_app(cred)
+        except Exception as e:
+            print(f"Warning: Failed to initialize Firebase Admin with json file: {e}")
+            try:
+                firebase_admin.initialize_app()
+            except ValueError:
+                pass
+    else:
+        try:
+            firebase_admin.initialize_app()
+        except ValueError:
+            pass
 
 # ================= SEO / UTILITY ROUTES =================
 @app.route("/robots.txt")

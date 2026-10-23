@@ -50,6 +50,9 @@ def auth_firebase():
                 return jsonify({
                     "error": "This email is associated with an existing account. Please verify your email before signing in."
                 }), 403
+            if not user.name and name:
+                user.name = name
+                db.session.commit()
         else:
             role = default_role_for_email(email)
             user = User(
@@ -66,7 +69,7 @@ def auth_firebase():
         if not user.is_active:
             return jsonify({"error": "Account inactive"}), 403
             
-        login_user(user)
+        login_user(user, remember=True)
         return jsonify({"success": True})
     except Exception as e:
         print(f"Database error during auth: {e}")

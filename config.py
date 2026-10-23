@@ -1,5 +1,9 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env file into environment variables
+load_dotenv()
 
 class Config:
     # Environment mode detection
