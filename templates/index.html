@@ -6,7 +6,7 @@
   {% include "_seo.html" %}
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="manifest" href="/manifest.json">
   <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
@@ -250,7 +250,7 @@ new Chart(scoreCtx, {
     data: {
         datasets: [{
             data: [{{ h_score }}, {{ 100 - h_score }}],
-            backgroundColor: ['#a855f7', 'rgba(168, 85, 247, 0.1)'],
+            backgroundColor: [document.body.classList.contains('dark-theme') ? '#5B8CFF' : '#2563EB', document.body.classList.contains('dark-theme') ? 'rgba(91, 140, 255, 0.15)' : 'rgba(37, 99, 235, 0.1)'],
             borderWidth: 0,
             borderRadius: 10
         }]
@@ -263,7 +263,7 @@ new Chart(scoreCtx, {
 
 /* -------------------- WEEKLY CHARTS -------------------- */
 (function() {
-    Chart.defaults.font.family = "'Outfit', sans-serif";
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
     Chart.defaults.color = "#94a3b8";
 
     // Standardize labels to MM-DD
@@ -303,7 +303,7 @@ new Chart(scoreCtx, {
                     padding: isCompactViewport ? 6 : 8,
                     font: { size: isCompactViewport ? 10 : 11 }
                 },
-                grid: { color: 'rgba(148, 163, 184, 0.1)' }
+                grid: { color: document.body.classList.contains('dark-theme') ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' }
             },
             x: {
                 offset: false,
@@ -326,8 +326,8 @@ new Chart(scoreCtx, {
         datasets: [{
           label: 'Calories',
           data: {{ weekly_cal | tojson }},
-          borderColor: '#a855f7',
-          backgroundColor: 'rgba(168, 85, 247, 0.1)',
+          borderColor: document.body.classList.contains('dark-theme') ? '#5B8CFF' : '#2563EB',
+          backgroundColor: document.body.classList.contains('dark-theme') ? 'rgba(91, 140, 255, 0.12)' : 'rgba(37, 99, 235, 0.08)',
           borderWidth: 3,
           tension: 0.4,
           pointRadius: isCompactViewport ? 2.5 : 3.5,

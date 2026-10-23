@@ -1,57 +1,146 @@
-<nav class="navbar">
-    <div class="nav-left" id="navMenu">
+<!-- DESKTOP SIDEBAR & MOBILE NAVIGATION SHELL -->
+<header class="mobile-topbar">
+    <div class="mobile-topbar-brand">
+        <a href="{{ url_for('dashboard.index') }}" class="brand-link">
+            <span class="brand-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+            </span>
+            <span class="brand-title">VitalLog</span>
+        </a>
+    </div>
+    <div class="mobile-topbar-actions">
+        <button id="themeToggleMobile" class="theme-btn" aria-label="Toggle dark/light mode">🌙</button>
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('auth.profile') }}" class="nav-user nav-user-mobile nav-user-link">
+        <a href="{{ url_for('auth.profile') }}" class="mobile-user-link" aria-label="View Profile">
             <div class="nav-avatar nav-avatar-fallback">{{ current_user.name[:1] | upper }}</div>
-            <div class="nav-user-meta">
-                <strong>{{ current_user.name }}</strong>
-                <span>{{ current_user.email }}</span>
+        </a>
+        {% endif %}
+        <button class="menu-toggle" id="menuToggle" aria-label="Open navigation menu" aria-expanded="false">☰</button>
+    </div>
+</header>
+
+<nav class="navbar app-sidebar" id="navMenu">
+    <!-- Sidebar Header (Desktop) -->
+    <div class="sidebar-header">
+        <a href="{{ url_for('dashboard.index') }}" class="brand-link">
+            <span class="brand-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                </svg>
+            </span>
+            <div class="brand-text-block">
+                <span class="brand-title">VitalLog</span>
+                <span class="brand-badge">v2</span>
             </div>
         </a>
-        {% else %}
-        <div class="nav-auth-mobile">
-            <a href="{{ url_for('auth.login') }}" class="secondary-btn nav-auth-link">Sign In</a>
-            <a href="{{ url_for('auth.register') }}" class="primary-btn nav-auth-link">Create Account</a>
-        </div>
-        {% endif %}
-        <a href="{{ url_for('dashboard.index') }}" class="{{ 'active' if active_page == 'dashboard' else '' }}">Dashboard</a>
-        <a href="{{ url_for('dashboard.food') }}" class="{{ 'active' if active_page == 'food' else '' }}">Food</a>
-        <a href="{{ url_for('dashboard.gym') }}" class="{{ 'active' if active_page == 'gym' else '' }}">Workout</a>
-        <a href="{{ url_for('dashboard.sleep') }}" class="{{ 'active' if active_page == 'sleep' else '' }}">Sleep</a>
-        <a href="{{ url_for('dashboard.wellbeing') }}" class="{{ 'active' if active_page == 'wellbeing' else '' }}">Well-being</a>
-        <a href="{{ url_for('dashboard.weight') }}" class="{{ 'active' if active_page == 'weight' else '' }}">Weight</a>
-        <a href="{{ url_for('dashboard.report') }}" class="{{ 'active' if active_page == 'report' else '' }}">Report</a>
+    </div>
+
+    <!-- Navigation Links -->
+    <div class="sidebar-nav-group">
+        <div class="nav-section-title">Navigation</div>
+        <a href="{{ url_for('dashboard.index') }}" class="nav-item {{ 'active' if active_page == 'dashboard' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                    <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                </svg>
+            </span>
+            <span class="nav-label">Overview</span>
+        </a>
+        <a href="{{ url_for('dashboard.food') }}" class="nav-item {{ 'active' if active_page == 'food' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>
+                </svg>
+            </span>
+            <span class="nav-label">Nutrition</span>
+        </a>
+        <a href="{{ url_for('dashboard.gym') }}" class="nav-item {{ 'active' if active_page == 'gym' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12"/>
+                </svg>
+            </span>
+            <span class="nav-label">Workouts</span>
+        </a>
+        <a href="{{ url_for('dashboard.weight') }}" class="nav-item {{ 'active' if active_page == 'weight' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 3v18M3 12h18M6 8l-3 4 3 4M18 8l3 4-3 4"/>
+                </svg>
+            </span>
+            <span class="nav-label">Body Weight</span>
+        </a>
+        <a href="{{ url_for('dashboard.sleep') }}" class="nav-item {{ 'active' if active_page == 'sleep' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+            </span>
+            <span class="nav-label">Sleep</span>
+        </a>
+        <a href="{{ url_for('dashboard.wellbeing') }}" class="nav-item {{ 'active' if active_page == 'wellbeing' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                </svg>
+            </span>
+            <span class="nav-label">Well-being</span>
+        </a>
+        <a href="{{ url_for('dashboard.report') }}" class="nav-item {{ 'active' if active_page == 'report' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+            </span>
+            <span class="nav-label">Analytics</span>
+        </a>
         {% if current_user.is_authenticated and current_user.role == 'admin' %}
-        <a href="{{ url_for('dashboard.admin_users') }}" class="{{ 'active' if active_page == 'admin_users' else '' }}">Users</a>
+        <a href="{{ url_for('dashboard.admin_users') }}" class="nav-item {{ 'active' if active_page == 'admin_users' else '' }}">
+            <span class="nav-icon">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+            </span>
+            <span class="nav-label">User Admin</span>
+        </a>
         {% endif %}
     </div>
 
-    <div class="nav-right">
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('auth.profile') }}" class="nav-user nav-user-desktop nav-user-link">
+        <a href="{{ url_for('auth.profile') }}" class="sidebar-user-card" title="Edit Profile">
             <div class="nav-avatar nav-avatar-fallback">{{ current_user.name[:1] | upper }}</div>
-            <div class="nav-user-meta">
-                <strong>{{ current_user.name }}</strong>
-                <span>{{ current_user.role|title }}</span>
+            <div class="sidebar-user-meta">
+                <span class="sidebar-username">{{ current_user.name }}</span>
+                <span class="sidebar-role">{{ current_user.role|title }}</span>
             </div>
         </a>
+        <div class="sidebar-actions-row">
+            <button id="themeToggle" class="theme-btn sidebar-btn" type="button" aria-label="Toggle dark/light mode">
+                <span class="theme-icon">🌙</span> <span class="theme-text">Dark</span>
+            </button>
+            <form action="{{ url_for('auth.logout') }}" method="POST" class="sidebar-logout-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="sidebar-btn logout-btn" title="Sign Out">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
         {% else %}
-        <div class="nav-auth-desktop">
-            <a href="{{ url_for('auth.login') }}" class="secondary-btn nav-auth-link">Sign In</a>
-            <a href="{{ url_for('auth.register') }}" class="primary-btn nav-auth-link">Create Account</a>
+        <div class="sidebar-auth-group">
+            <a href="{{ url_for('auth.login') }}" class="secondary-btn sidebar-auth-btn">Sign In</a>
+            <a href="{{ url_for('auth.register') }}" class="primary-btn sidebar-auth-btn">Create Account</a>
+            <button id="themeToggle" class="theme-btn sidebar-btn" type="button" style="margin-top: 8px; width: 100%;">
+                <span class="theme-icon">🌙</span> <span class="theme-text">Dark</span>
+            </button>
         </div>
         {% endif %}
-
-        {% if current_user.is_authenticated %}
-        <!-- Mobile Profile Avatar -->
-        <a href="{{ url_for('auth.profile') }}" class="nav-user-mobile-avatar">
-            <span class="mobile-username">{{ current_user.name }}</span>
-            <div class="nav-avatar nav-avatar-fallback">{{ current_user.name[:1] | upper }}</div>
-        </a>
-        {% endif %}
-
-        <button id="themeToggle" class="theme-btn">Dark</button>
-        <button class="menu-toggle" id="menuToggle" aria-label="Open navigation menu" aria-expanded="false">☰</button>
     </div>
 </nav>
 
@@ -59,7 +148,7 @@
 if (!window.__desktopScrollValueLock) {
     window.__desktopScrollValueLock = true;
 
-    const desktopPointerQuery = window.matchMedia("(min-width: 769px) and (hover: hover) and (pointer: fine)");
+    const desktopPointerQuery = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
 
     document.addEventListener("wheel", (event) => {
         if (!desktopPointerQuery.matches) return;
@@ -75,15 +164,24 @@ if (!window.__sharedNavControls) {
     window.__sharedNavControls = true;
 
     const body = document.body;
-    const toggleBtn = document.getElementById("themeToggle");
+    const toggleBtns = document.querySelectorAll("#themeToggle, #themeToggleMobile, .theme-btn");
     const menuToggle = document.getElementById("menuToggle");
     const navMenu = document.getElementById("navMenu");
-    const desktopNavQuery = window.matchMedia("(min-width: 769px)");
+    const desktopNavQuery = window.matchMedia("(min-width: 1024px)");
 
     function syncThemeButton() {
-        if (!toggleBtn) return;
         const isDark = body.classList.contains("dark");
-        toggleBtn.innerText = isDark ? "☀️ Light" : "🌙 Dark";
+        toggleBtns.forEach(btn => {
+            const icon = btn.querySelector(".theme-icon");
+            const text = btn.querySelector(".theme-text");
+            if (icon && text) {
+                icon.innerText = isDark ? "☀️" : "🌙";
+                text.innerText = isDark ? "Light" : "Dark";
+            } else {
+                btn.innerText = isDark ? "☀️ Light" : "🌙 Dark";
+            }
+        });
+        window.dispatchEvent(new CustomEvent('themeChanged', { detail: { isDark: isDark } }));
     }
 
     function syncMenuButton() {
@@ -100,10 +198,12 @@ if (!window.__sharedNavControls) {
     syncThemeButton();
     syncMenuButton();
 
-    toggleBtn?.addEventListener("click", () => {
-        body.classList.toggle("dark");
-        localStorage.setItem("theme", body.classList.contains("dark") ? "dark" : "light");
-        syncThemeButton();
+    toggleBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            body.classList.toggle("dark");
+            localStorage.setItem("theme", body.classList.contains("dark") ? "dark" : "light");
+            syncThemeButton();
+        });
     });
 
     menuToggle?.addEventListener("click", () => {
@@ -113,6 +213,7 @@ if (!window.__sharedNavControls) {
 
     document.addEventListener("click", (event) => {
         if (!navMenu || !menuToggle) return;
+        if (window.innerWidth >= 1024) return;
         if (!navMenu.contains(event.target) && !menuToggle.contains(event.target)) {
             navMenu.classList.remove("active");
             syncMenuButton();
@@ -593,27 +694,52 @@ if (!window.__sharedNavControls) {
 
 <div class="mobile-bottom-nav">
     <a href="{{ url_for('dashboard.index') }}" class="mobile-nav-item {{ 'active' if active_page == 'dashboard' else '' }}">
-        <span class="mobile-nav-icon">🏠</span>
+        <span class="mobile-nav-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+            </svg>
+        </span>
         <span class="mobile-nav-label">Home</span>
     </a>
     <a href="{{ url_for('dashboard.food') }}" class="mobile-nav-item {{ 'active' if active_page == 'food' else '' }}">
-        <span class="mobile-nav-icon">🍎</span>
+        <span class="mobile-nav-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>
+            </svg>
+        </span>
         <span class="mobile-nav-label">Food</span>
     </a>
     <a href="{{ url_for('dashboard.gym') }}" class="mobile-nav-item {{ 'active' if active_page == 'gym' else '' }}">
-        <span class="mobile-nav-icon">🏋️</span>
+        <span class="mobile-nav-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 5v14M18 5v14M2 9v6M22 9v6M6 12h12"/>
+            </svg>
+        </span>
         <span class="mobile-nav-label">Workout</span>
     </a>
+    <a href="{{ url_for('dashboard.weight') }}" class="mobile-nav-item {{ 'active' if active_page == 'weight' else '' }}">
+        <span class="mobile-nav-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3v18M3 12h18M6 8l-3 4 3 4M18 8l3 4-3 4"/>
+            </svg>
+        </span>
+        <span class="mobile-nav-label">Weight</span>
+    </a>
     <a href="{{ url_for('dashboard.sleep') }}" class="mobile-nav-item {{ 'active' if active_page == 'sleep' else '' }}">
-        <span class="mobile-nav-icon">🌙</span>
+        <span class="mobile-nav-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+        </span>
         <span class="mobile-nav-label">Sleep</span>
     </a>
-    <a href="{{ url_for('dashboard.wellbeing') }}" class="mobile-nav-item {{ 'active' if active_page == 'wellbeing' else '' }}">
-        <span class="mobile-nav-icon">🧘</span>
-        <span class="mobile-nav-label">Wellness</span>
-    </a>
     <a href="{{ url_for('dashboard.report') }}" class="mobile-nav-item {{ 'active' if active_page == 'report' else '' }}">
-        <span class="mobile-nav-icon">📊</span>
+        <span class="mobile-nav-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+        </span>
         <span class="mobile-nav-label">Report</span>
     </a>
 </div>

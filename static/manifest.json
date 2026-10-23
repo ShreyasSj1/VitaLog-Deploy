@@ -4,8 +4,8 @@
   "description": "Log workouts, meals, sleep, well-being, and get AI fitness coaching.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f172a",
-  "theme_color": "#8b5cf6",
+  "background_color": "#0B0D10",
+  "theme_color": "#2563EB",
   "orientation": "portrait",
   "icons": [
     {
