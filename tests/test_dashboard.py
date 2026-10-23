@@ -299,3 +299,28 @@ class TestReportRoute:
     def test_report_requires_login(self, client):
         resp = client.get("/report", follow_redirects=False)
         assert resp.status_code == 302
+
+
+class TestDailyHabitScoringAndEnergyBalance:
+    def test_habit_score_none_when_unlogged(self, client, db):
+        user = make_user(db, email="habit_unlogged@example.com")
+        login(client, email="habit_unlogged@example.com")
+        resp = client.get(f"/?date={TODAY}")
+        assert resp.status_code == 200
+        # When unlogged, score should display "--" instead of a false "0%"
+        assert b"--" in resp.data
+        assert b"No food logged yet today" in resp.data
+
+    def test_habit_score_not_penalized_on_rest_days(self, client, db):
+        user = make_user(db, email="habit_rest@example.com")
+        login(client, email="habit_rest@example.com")
+        # Log food on target (1.0) and healthy sleep (1.0)
+        client.post("/food", data={"meal": "Lunch", "food": "Rice", "qty": "1"})
+        client.post("/sleep", data={"date": TODAY, "hours": "8.0", "quality": "5"})
+        # No gym logged -> rest day
+        resp = client.get(f"/?date={TODAY}")
+        assert resp.status_code == 200
+        # Denominator should only evaluate active logged habits (food + sleep = 2)
+        # So score is 100% (2/2), NOT penalized down to 50% for resting
+        assert b"Rest / Recovery day" in resp.data
+        assert b"100%" in resp.data

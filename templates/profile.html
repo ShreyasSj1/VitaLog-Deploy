@@ -246,8 +246,9 @@ document.getElementById("calculateTargetsBtn")?.addEventListener("click", () => 
         return;
     }
 
-    // Mifflin-St Jeor formula
-    const bmr = (10 * weight) + (6.25 * height) - (5 * age) + (gender === "female" ? -161 : 5);
+    // Mifflin-St Jeor formula (male: +5, female: -161, unspecified/neutral midpoint: -78)
+    const genderOffset = gender === "female" ? -161 : (gender === "male" ? 5 : -78);
+    const bmr = (10 * weight) + (6.25 * height) - (5 * age) + genderOffset;
     const actFactors = { "sedentary": 1.2, "light": 1.375, "moderate": 1.55, "active": 1.725 };
     const factor = actFactors[act] || 1.375;
     calculatedTdee = Math.round(bmr * factor);

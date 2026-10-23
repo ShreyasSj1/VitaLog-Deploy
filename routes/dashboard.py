@@ -13,8 +13,8 @@ from models import (
     record_weight_log, get_or_create_user_preferences
 )
 from utils import (
-    normalize_selected_date, get_week_dates, parse_optional_float, get_today,
-    chat_rate_limiter, validate_positive_float, validate_non_negative_float,
+    normalize_selected_date, get_week_dates, parse_optional_float, parse_optional_int,
+    get_today, chat_rate_limiter, validate_positive_float, validate_non_negative_float,
     validate_int_range, validate_text, calculate_tdee
 )
 from constants import FOOD_DATA, CARDIO_EXERCISES, EXERCISE_CATALOG, MUSCLE_FACTORS, INTENSITY_MAP
@@ -45,7 +45,21 @@ def is_admin_user():
 
 @dashboard_bp.route("/health")
 def health():
+    # Liveness probe
     return {"ok": True, "status": "healthy"}, 200
+
+@dashboard_bp.route("/health/ready")
+def readiness():
+    # Readiness probe: verifies DB connectivity and bootstrap state
+    from flask import current_app
+    bootstrap_err = current_app.config.get("BOOTSTRAP_ERROR")
+    if bootstrap_err:
+        return jsonify({"ok": False, "status": "unready", "error": bootstrap_err}), 503
+    try:
+        db.session.execute(db.text("SELECT 1"))
+        return jsonify({"ok": True, "status": "ready", "database": "connected"}), 200
+    except Exception as e:
+        return jsonify({"ok": False, "status": "unready", "error": str(e)}), 503
 
 @dashboard_bp.route("/service-worker.js")
 def service_worker():
@@ -122,15 +136,20 @@ def index():
         act_factors = {"sedentary": 1.2, "light": 1.375, "moderate": 1.55, "active": 1.725}
         act_factor = act_factors.get(act_level, 1.375)
         estimated_tdee = calculate_tdee(current_user.weight, current_user.height, current_user.age, gender, act_factor)
-        energy_balance = round(totals.cal - (estimated_tdee + gym_total), 1)
+        # Energy balance compares total food intake against estimated daily expenditure (TDEE).
+        # Gym burn is displayed as its own active metric box to prevent double-counting exercise on top of an activity-adjusted TDEE.
+        energy_balance = round(totals.cal - estimated_tdee, 1)
 
     # ── Daily Habits & Consistency Summary ──
+    # Dynamic evaluated habit scoring: only active, applicable habits form the score denominator.
+    # Rest days from the gym are healthy and expected, and unlogged morning states do not produce a false failing grade.
     habits = []
     habits_achieved = 0.0
-    total_habits = 4
+    habits_evaluated = 0
 
     # 1. Nutrition habit
     if totals.cal > 0:
+        habits_evaluated += 1
         if totals.cal >= goals["calories"] * 0.75 and totals.cal <= goals["calories"] * 1.10:
             habits.append(("Nutrition on target", "good"))
             habits_achieved += 1.0
@@ -145,14 +164,17 @@ def index():
 
     # 2. Workout habit
     if gym_total > 0:
+        habits_evaluated += 1
         habits.append((f"Workout completed ({int(gym_total)} kcal est. burn)", "good"))
         habits_achieved += 1.0
     else:
-        habits.append(("Rest day / No workout logged", "neutral"))
+        # Rest days are neutral and healthy — excluded from denominator so users are not penalized for recovery
+        habits.append(("Rest / Recovery day (Neutral)", "neutral"))
 
     # 3. Sleep habit
     sleep_row = SleepLog.query.filter_by(user_id=current_user.id, date=selected_date).first()
     if sleep_row:
+        habits_evaluated += 1
         if sleep_row.hours >= 7.0:
             habits.append((f"Healthy sleep duration ({sleep_row.hours} hrs)", "good"))
             habits_achieved += 1.0
@@ -164,15 +186,19 @@ def index():
     else:
         habits.append(("Sleep not logged yet today", "neutral"))
 
-    # 4. Wellbeing habit
+    # 4. Wellbeing habit (optional mindfulness practice)
     wb_today = wb_by_date.get(selected_date, 0)
     if wb_today > 0:
+        habits_evaluated += 1
         habits.append((f"Mindfulness / Wellbeing ({wb_today} mins)", "good"))
         habits_achieved += 1.0
     else:
         habits.append(("Wellbeing session optional", "neutral"))
 
-    habit_score = int(round((habits_achieved / total_habits) * 100))
+    if habits_evaluated > 0:
+        habit_score = int(round((habits_achieved / habits_evaluated) * 100))
+    else:
+        habit_score = None
 
     daily_challenge = get_daily_challenge(selected_date)
     challenge_completed = is_challenge_completed(current_user.id, selected_date, daily_challenge["title"])
@@ -1186,19 +1212,34 @@ def delete_weight(item_id):
 @dashboard_bp.route("/api/weight-history", methods=["GET"])
 @login_required
 def api_weight_history():
-    logs = WeightLog.query.filter_by(user_id=current_user.id).order_by(WeightLog.date.asc()).all()
+    days_param = parse_optional_int(request.args.get("days"))
+    query = WeightLog.query.filter_by(user_id=current_user.id)
+    if days_param and days_param > 0:
+        cutoff = (get_today() - timedelta(days=days_param)).isoformat()
+        query = query.filter(WeightLog.date >= cutoff)
+
+    logs = query.order_by(WeightLog.date.asc()).all()
     readings = [{"date": log.date, "weight": log.weight} for log in logs]
-    moving_avg = []
-    window = []
-    for log in logs:
-        window.append(log.weight)
-        if len(window) > 7:
-            window.pop(0)
-        moving_avg.append(round(sum(window) / len(window), 2))
+
+    # Calculate true 7-calendar-day rolling average:
+    # For each date D, average all weight readings in the calendar range [D - 6 days, D].
+    rolling_7d_avg = []
+    for i, log in enumerate(logs):
+        try:
+            curr_d = datetime.strptime(log.date, "%Y-%m-%d").date()
+            start_d = curr_d - timedelta(days=6)
+            window_weights = [
+                l.weight for l in logs[:i + 1]
+                if start_d <= datetime.strptime(l.date, "%Y-%m-%d").date() <= curr_d
+            ]
+            rolling_7d_avg.append(round(sum(window_weights) / len(window_weights), 2))
+        except ValueError:
+            rolling_7d_avg.append(log.weight)
 
     return jsonify({
         "readings": readings,
-        "moving_average": moving_avg,
+        "moving_average": rolling_7d_avg,
+        "days": days_param,
         "count": len(readings)
     })
 

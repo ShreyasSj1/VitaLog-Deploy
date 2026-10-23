@@ -244,6 +244,29 @@ def migration_005_user_preferences(conn, dialect: str):
     conn.commit()
 
 
+def migration_006_rate_limit_events(conn, dialect: str):
+    """Create rate_limit_events table for multi-worker rate limiting."""
+    if dialect == "postgresql":
+        conn.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS rate_limit_events (
+                id SERIAL PRIMARY KEY,
+                key VARCHAR(150) NOT NULL,
+                timestamp DOUBLE PRECISION NOT NULL
+            )
+        """))
+        conn.execute(db.text("CREATE INDEX IF NOT EXISTS idx_rate_limit_key_ts ON rate_limit_events (key, timestamp)"))
+    else:
+        conn.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS rate_limit_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key VARCHAR(150) NOT NULL,
+                timestamp REAL NOT NULL
+            )
+        """))
+        conn.execute(db.text("CREATE INDEX IF NOT EXISTS idx_rate_limit_key_ts ON rate_limit_events (key, timestamp)"))
+    conn.commit()
+
+
 # Ordered list of all migrations
 MIGRATIONS = [
     (1, "phase5_user_goals", migration_001_phase5_user_goals),
@@ -251,6 +274,7 @@ MIGRATIONS = [
     (3, "nutrition_favorites_and_saved_meals", migration_003_nutrition_favorites_and_saved_meals),
     (4, "workout_sets", migration_004_workout_sets),
     (5, "user_preferences", migration_005_user_preferences),
+    (6, "rate_limit_events", migration_006_rate_limit_events),
 ]
 
 

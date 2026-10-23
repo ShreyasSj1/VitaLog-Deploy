@@ -8,8 +8,28 @@ from flask import request, has_request_context
 
 
 # ===========================================================================
-# Rate Limiting
+# Rate Limiting & Client IP Detection
 # ===========================================================================
+
+def get_client_ip(req=None) -> str:
+    """Return the client IP address securely.
+    When running behind a trusted reverse proxy (Render, AWS, Cloudflare),
+    Werkzeug's ProxyFix sets request.remote_addr from the nearest trusted proxy hop.
+    Never trusts spoofable client-supplied leading values in X-Forwarded-For.
+    """
+    if req is None and has_request_context():
+        req = request
+    if not req:
+        return "127.0.0.1"
+    # When ProxyFix is active, req.remote_addr is the sanitized client IP
+    if req.remote_addr:
+        return req.remote_addr.strip()
+    xff = req.headers.get("X-Forwarded-For", "")
+    if xff:
+        # The rightmost IP is the one added by the nearest trusted proxy hop
+        return xff.split(",")[-1].strip()
+    return "127.0.0.1"
+
 
 class InMemoryRateLimiter:
     """Thread-safe sliding-window in-memory rate limiter."""
@@ -38,9 +58,65 @@ class InMemoryRateLimiter:
             self._history.clear()
 
 
-# Default rate limiter instances for sensitive endpoints
-auth_rate_limiter = InMemoryRateLimiter(requests_per_window=15, window_seconds=60)
-chat_rate_limiter = InMemoryRateLimiter(requests_per_window=20, window_seconds=60)
+class MultiWorkerRateLimiter:
+    """Rate limiter supporting multi-worker Gunicorn processes via database or memory fallback."""
+    def __init__(self, requests_per_window: int = 30, window_seconds: int = 60, name: str = "default"):
+        self.requests_per_window = requests_per_window
+        self.window_seconds = window_seconds
+        self.name = name
+        self._memory_limiter = InMemoryRateLimiter(requests_per_window, window_seconds)
+
+    def is_allowed(self, key: str) -> bool:
+        if not key:
+            return True
+        full_key = f"{self.name}:{key}"
+        # Try database-backed sliding window if app context and db are available
+        if has_request_context():
+            try:
+                from extensions import db
+                now = time.time()
+                cutoff = now - self.window_seconds
+                with db.engine.begin() as conn:
+                    # Clean expired entries for this key
+                    conn.execute(
+                        db.text("DELETE FROM rate_limit_events WHERE key = :k AND timestamp < :c"),
+                        {"k": full_key, "c": cutoff}
+                    )
+                    # Count recent requests
+                    count = conn.execute(
+                        db.text("SELECT COUNT(*) FROM rate_limit_events WHERE key = :k AND timestamp >= :c"),
+                        {"k": full_key, "c": cutoff}
+                    ).scalar() or 0
+                    if count >= self.requests_per_window:
+                        return False
+                    # Record this request
+                    conn.execute(
+                        db.text("INSERT INTO rate_limit_events (key, timestamp) VALUES (:k, :t)"),
+                        {"k": full_key, "t": now}
+                    )
+                    return True
+            except Exception:
+                # If table doesn't exist yet or DB unreachable, fallback to thread-safe memory limiter
+                pass
+        return self._memory_limiter.is_allowed(key)
+
+    def reset(self):
+        self._memory_limiter.reset()
+        if has_request_context():
+            try:
+                from extensions import db
+                with db.engine.begin() as conn:
+                    conn.execute(
+                        db.text("DELETE FROM rate_limit_events WHERE key LIKE :k"),
+                        {"k": f"{self.name}:%"}
+                    )
+            except Exception:
+                pass
+
+
+# Default rate limiter instances for sensitive endpoints (supporting multi-worker deployments)
+auth_rate_limiter = MultiWorkerRateLimiter(requests_per_window=15, window_seconds=60, name="auth")
+chat_rate_limiter = MultiWorkerRateLimiter(requests_per_window=20, window_seconds=60, name="chat")
 
 
 # ===========================================================================
@@ -166,8 +242,15 @@ def get_week_dates(selected_date):
 # Energy Balance & TDEE Calculations
 # ===========================================================================
 
-def calculate_bmr_mifflin_st_jeor(weight_kg: float, height_cm: float, age: int, gender: str = "male") -> float:
+def calculate_bmr_mifflin_st_jeor(weight_kg: float, height_cm: float, age: int, gender: str = "unspecified") -> float:
     """Calculate Basal Metabolic Rate using the Mifflin-St Jeor formula.
+    
+    Formula: BMR = (10 * weight_kg) + (6.25 * height_cm) - (5 * age) + constant
+    Constants:
+    - Male: +5.0 kcal
+    - Female: -161.0 kcal
+    - Unspecified / Prefer not to say: -78.0 kcal (exact neutral midpoint between male and female)
+    
     Returns 0.0 if any parameter is missing, non-positive, or non-finite.
     """
     if not weight_kg or not height_cm or not age:
@@ -181,15 +264,20 @@ def calculate_bmr_mifflin_st_jeor(weight_kg: float, height_cm: float, age: int, 
     if w <= 0 or h <= 0 or a <= 0 or math.isnan(w) or math.isinf(w) or math.isnan(h) or math.isinf(h):
         return 0.0
 
-    # BMR = 10*weight + 6.25*height - 5*age (+5 for male, -161 for female)
+    # BMR = 10*weight + 6.25*height - 5*age (+5 for male, -161 for female, -78 for unspecified midpoint)
     base = (10.0 * w) + (6.25 * h) - (5.0 * a)
-    if (gender or "").lower() in ("female", "f"):
+    g = (gender or "").strip().lower()
+    if g in ("female", "f"):
         return round(base - 161.0, 1)
-    # Default to male / neutral formula (+5)
-    return round(base + 5.0, 1)
+    elif g in ("male", "m"):
+        return round(base + 5.0, 1)
+    else:
+        # Neutral midpoint of Mifflin-St Jeor equation when biological sex is unspecified:
+        # (male constant +5.0 + female constant -161.0) / 2 = -78.0 kcal
+        return round(base - 78.0, 1)
 
 
-def calculate_tdee(weight_kg: float, height_cm: float, age: int, gender: str = "male", activity_factor: float = 1.375) -> float:
+def calculate_tdee(weight_kg: float, height_cm: float, age: int, gender: str = "unspecified", activity_factor: float = 1.375) -> float:
     """Calculate Total Daily Energy Expenditure (BMR * Activity Multiplier).
     Activity levels:
     - 1.2: Sedentary (desk job, little exercise)

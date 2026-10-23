@@ -23,6 +23,9 @@ class TestSecurityHeadersAndCookies:
         assert "default-src 'self'" in csp
         assert "cdn.jsdelivr.net" in csp
         assert "fonts.googleapis.com" in csp
+        hsts = resp.headers.get("Strict-Transport-Security")
+        assert hsts is not None
+        assert "max-age=31536000" in hsts
 
     def test_session_cookie_settings_configured(self, app):
         assert app.config.get("SESSION_COOKIE_HTTPONLY") is True
@@ -205,4 +208,52 @@ class TestCrossUserIsolation:
         resp = client.get("/api/exercise-history?exercise=Bench Press")
         assert resp.status_code == 200
         assert resp.get_json()["history"] == []
+
+
+class TestHealthAndReadinessProbes:
+    def test_liveness_probe_returns_200(self, client):
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "healthy"
+
+    def test_readiness_probe_returns_200_when_healthy(self, client):
+        resp = client.get("/health/ready")
+        assert resp.status_code == 200
+        assert resp.get_json()["status"] == "ready"
+        assert resp.get_json()["database"] == "connected"
+
+
+class TestClientIPResolution:
+    def test_get_client_ip_prefers_remote_addr_under_proxy(self, app):
+        from utils import get_client_ip
+        with app.test_request_context("/", environ_base={"REMOTE_ADDR": "198.51.100.4"}):
+            assert get_client_ip() == "198.51.100.4"
+
+    def test_get_client_ip_does_not_trust_spoofed_leading_xff(self, app):
+        from utils import get_client_ip
+        # Attacker injects fake leading IP, proxy appends real IP at the end
+        headers = {"X-Forwarded-For": "203.0.113.195, 198.51.100.4"}
+        with app.test_request_context("/", headers=headers, environ_base={"REMOTE_ADDR": ""}):
+            # Must take the right-most trusted proxy hop, NOT the attacker's spoofed 203.0.113.195
+            assert get_client_ip() == "198.51.100.4"
+
+
+class TestNeutralBMRCalculation:
+    def test_unspecified_gender_uses_neutral_midpoint(self):
+        from utils import calculate_bmr_mifflin_st_jeor
+        # Weight: 70kg, Height: 175cm, Age: 30
+        # Base = (10 * 70) + (6.25 * 175) - (5 * 30) = 700 + 1093.75 - 150 = 1643.75
+        # Male: 1643.75 + 5 = 1648.8
+        # Female: 1643.75 - 161 = 1482.8
+        # Unspecified midpoint: 1643.75 - 78 = 1565.8
+        bmr_male = calculate_bmr_mifflin_st_jeor(70, 175, 30, "male")
+        bmr_female = calculate_bmr_mifflin_st_jeor(70, 175, 30, "female")
+        bmr_unspecified = calculate_bmr_mifflin_st_jeor(70, 175, 30, "unspecified")
+
+        assert bmr_male == 1648.8
+        assert bmr_female == 1482.8
+        assert bmr_unspecified == 1565.8
+        # Verify unspecified is strictly between female and male (exact midpoint)
+        assert bmr_female < bmr_unspecified < bmr_male
+        assert round(bmr_unspecified - bmr_female, 1) == round(bmr_male - bmr_unspecified, 1)
 

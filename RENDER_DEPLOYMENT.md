@@ -19,16 +19,37 @@ This Flask app is ready to deploy on Render with PostgreSQL.
 
 ## Required environment variables
 
-- `DATABASE_URL`
-- `SECRET_KEY`
+- `DATABASE_URL` (Internal PostgreSQL connection string)
+- `SECRET_KEY` (Strong random cryptographic key)
 - `FLASK_DEBUG=false`
-- `GROQ_API_KEY` (Required for the AI chatbot)
+- `ADMIN_EMAILS` (Comma-separated list of initial administrator email addresses)
+- `GROQ_API_KEY` (Required for the AI coaching chatbot)
+- `FIREBASE_CREDENTIALS_BASE64` (Base64-encoded Firebase Service Account JSON, if using Firebase Auth)
+
+## Administrator Bootstrap Procedure
+
+For security, the application **never** automatically promotes the first registered user to administrator.
+To establish an administrator account:
+
+1. In Render Dashboard &rarr; **Environment Variables**, set `ADMIN_EMAILS` to your designated administrator email address:
+   ```text
+   ADMIN_EMAILS=admin@yourdomain.com
+   ```
+   (Multiple admins can be separated by commas, e.g. `admin1@example.com,admin2@example.com`).
+2. Deploy the service with this variable set.
+3. Register or sign in via that email. The user record is created with `role="admin"`, granting access to the `/admin/users` management panel.
+4. Any user whose email is not in `ADMIN_EMAILS` is strictly granted `role="user"`.
+
+## Health & Readiness Probes
+
+- **Liveness:** `GET /health` (Returns 200 `{"ok": true, "status": "healthy"}`)
+- **Readiness:** `GET /health/ready` (Verifies database connectivity and successful schema bootstrap; returns 503 if database is unreachable or migrations failed)
 
 ## Notes
 
-- The app already binds to `0.0.0.0` and uses `PORT`, which Render requires for public web services.
-- On startup, the app initializes PostgreSQL tables from `schema_postgres.sql` when `DATABASE_URL` is Postgres.
-- Do not use SQLite in Render production because the filesystem is ephemeral.
+- The app binds to `0.0.0.0` and uses `PORT`, as required by Render.
+- On startup, the app automatically runs `db.create_all()`, versioned migrations via `run_migrations()` (using PostgreSQL advisory locks for multi-worker safety), and populates lookup tables.
+- Do not use local SQLite in Render production because the web service filesystem is ephemeral.
 
 ## Optional migration
 

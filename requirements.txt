@@ -1,10 +1,10 @@
-Flask
-Flask-Login
-Flask-SQLAlchemy
-psycopg[binary]
-gunicorn
-groq
-firebase-admin
-pytest
-pytest-flask
+Flask==3.0.3
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+psycopg[binary]==3.3.4
+gunicorn==25.2.0
+groq==1.1.2
+firebase-admin==7.5.0
+pytest==9.1.1
+pytest-flask==1.3.0
 

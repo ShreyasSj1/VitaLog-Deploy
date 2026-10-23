@@ -62,16 +62,16 @@
           </div>
 
           <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
-            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Estimated Net Balance</span>
+            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Estimated Energy Balance</span>
             {% if estimated_tdee %}
               <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">
-                {{ energy_balance | round }} <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">kcal</span>
+                {% if energy_balance > 0 %}+{% endif %}{{ energy_balance | round }} <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">kcal</span>
               </div>
               <small class="text-muted">
                 {% if energy_balance < 0 %}
-                  Deficit vs TDEE (~{{ estimated_tdee | round }} kcal)
+                  Estimated Deficit vs TDEE (~{{ estimated_tdee | round }} kcal)
                 {% else %}
-                  Surplus vs TDEE (~{{ estimated_tdee | round }} kcal)
+                  Estimated Surplus vs TDEE (~{{ estimated_tdee | round }} kcal)
                 {% endif %}
               </small>
             {% else %}
@@ -174,7 +174,9 @@
                 </div>
                 <div class="score-badge-ring">
                     <canvas id="healthScoreCircle" width="120" height="120"></canvas>
-                    <div class="score-value" style="position: absolute;">{{ health_score }}%</div>
+                    <div class="score-value" style="position: absolute;">
+                        {% if health_score is not none %}{{ health_score }}%{% else %}--{% endif %}
+                    </div>
                 </div>
                 <div class="reasons-list">
                     {% for reason, type in health_reasons %}
@@ -241,7 +243,7 @@ document.querySelectorAll('.count-up').forEach(el => {
 });
 
 /* -------------------- HEALTH SCORE CIRCLE -------------------- */
-{% set h_score = health_score | default(75) %}
+{% set h_score = health_score if health_score is not none else 0 %}
 const scoreCtx = document.getElementById('healthScoreCircle').getContext('2d');
 new Chart(scoreCtx, {
     type: 'doughnut',
@@ -363,31 +365,6 @@ function switchChartTab(chartType, buttonEl) {
     const targetBlock = container.querySelector('#chart-block-' + chartType);
     if (targetBlock) {
         targetBlock.classList.add('active');
-    }
-}
-
-function toggleReasonAdvice(itemEl, reasonText) {
-    if (!itemEl.classList.contains('bad')) return;
-    
-    const wrapper = itemEl.closest('.reason-item-wrapper');
-    const adviceEl = wrapper.querySelector('.reason-advice');
-    if (!adviceEl) return;
-
-    const adviceMap = {
-        "Calorie limit exceeded": "You have consumed more calories than your daily goal. Consider doing a cardio workout (e.g. treadmill running, cycling, or elliptical) to burn off excess calories and balance your net intake!",
-        "Protein intake low": "You haven't reached your protein target for today. Head to the Food section and log a protein-dense food like Chicken Biryani, Grilled Chicken, Omelettes, or a Protein Shake!",
-        "Sugar limit exceeded": "You have exceeded your recommended daily sugar limit. Try to avoid processed snacks, sugary beverages, or desserts for the rest of today and stick to whole foods.",
-        "No workout logged": "No workout has been recorded for this date. Go to the Workout tab and log strength sets (like Bench Press or Squats) or cardio to keep your fitness streak active!",
-        "Short sleep duration": "You slept less than 7 hours. Try to get to bed a bit earlier tonight, limit screen time 1 hour before sleeping, and aim for a solid 8 hours of recovery!",
-        "No sleep data": "No sleep record is logged for today. Go to the Sleep tab to log your duration and quality rating so we can track your weekly recovery score!"
-    };
-
-    if (adviceEl.style.display === 'none') {
-        const adviceText = adviceMap[reasonText] || "Take a look at your daily logs to see where you can adjust your habits and achieve a healthier lifestyle.";
-        adviceEl.innerText = adviceText;
-        adviceEl.style.display = 'block';
-    } else {
-        adviceEl.style.display = 'none';
     }
 }
 </script>

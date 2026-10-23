@@ -14,3 +14,7 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
+      - key: ADMIN_EMAILS
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false

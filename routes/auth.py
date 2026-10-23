@@ -10,14 +10,14 @@ from models import (
 from utils import (
     parse_optional_int, parse_optional_float, auth_rate_limiter,
     validate_int_range, validate_positive_float, validate_non_negative_float,
-    validate_text
+    validate_text, get_client_ip
 )
 
 auth_bp = Blueprint("auth", __name__)
 
 @auth_bp.route("/api/auth/firebase", methods=["POST"])
 def auth_firebase():
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1").split(",")[0].strip()
+    client_ip = get_client_ip(request)
     if not auth_rate_limiter.is_allowed(client_ip):
         return jsonify({"error": "Too many authentication attempts. Please wait a moment before trying again."}), 429
 
@@ -88,7 +88,7 @@ def register():
     return render_template("register.html")
 
 
-@auth_bp.route("/logout", methods=["POST", "GET"])
+@auth_bp.route("/logout", methods=["POST"])
 @login_required
 def logout():
     logout_user()

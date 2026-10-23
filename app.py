@@ -18,6 +18,11 @@ from routes.dashboard import dashboard_bp
 app = Flask(__name__)
 app.config.from_object(Config)
 
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+# Configure ProxyFix so request.remote_addr safely reflects the nearest trusted proxy hop (Render / Cloudflare)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 db.init_app(app)
 
 login_manager = LoginManager()
@@ -33,6 +38,9 @@ def apply_security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    # Strict-Transport-Security (HSTS)
+    if request.is_secure or request.headers.get("X-Forwarded-Proto") == "https" or not app.debug:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     csp = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; "
@@ -151,10 +159,14 @@ with app.app_context():
         db.create_all()        # create any brand-new tables
         run_migrations()       # ALTER existing tables (add new columns safely)
         seed_lookup_tables()   # populate FoodItem / Exercise lookup tables
+        app.config["BOOTSTRAP_STATUS"] = "ready"
     except SQLAlchemyError as e:
-        # Do not crash the web process at import time if DB is temporarily unreachable.
-        # This keeps Render from restart-looping and makes debugging env/network issues easier.
-        print(f"[startup] Database bootstrap skipped: {e}")
+        app.config["BOOTSTRAP_STATUS"] = "failed"
+        app.config["BOOTSTRAP_ERROR"] = str(e)
+        print(f"[startup] Database bootstrap failed: {e}")
+        # In production with an external database URL, raise to prevent silent corrupt deploys
+        if not app.debug and os.environ.get("DATABASE_URL") and not os.environ.get("DATABASE_URL", "").startswith("sqlite:///:memory:"):
+            raise
 
 # ================= RUN =================
 if __name__ == "__main__":

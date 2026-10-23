@@ -172,6 +172,13 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at VARCHAR(50) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS rate_limit_events (
+    id BIGSERIAL PRIMARY KEY,
+    key VARCHAR(150) NOT NULL,
+    timestamp DOUBLE PRECISION NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_rate_limit_key_ts ON rate_limit_events (key, timestamp);
 CREATE INDEX IF NOT EXISTS idx_food_log_user_date ON food_log(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_sleep_log_user_date ON sleep_log(user_id, date);
 CREATE INDEX IF NOT EXISTS idx_wellbeing_log_user_date ON wellbeing_log(user_id, date);

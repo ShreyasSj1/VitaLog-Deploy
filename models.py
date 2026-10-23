@@ -298,6 +298,14 @@ class UserPreference(db.Model):
         }
 
 
+class RateLimitEvent(db.Model):
+    """Tracks rate limiting events for multi-worker production deployments."""
+    __tablename__ = "rate_limit_events"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    key = db.Column(db.String(150), nullable=False, index=True)
+    timestamp = db.Column(db.Float, nullable=False, index=True)
+
+
 # ──────────────────────────────────────────────
 # LOOKUP TABLES  (populated by seed on startup)
 # ──────────────────────────────────────────────

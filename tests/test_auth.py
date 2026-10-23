@@ -39,7 +39,7 @@ class TestAuthPages:
 
 class TestLogout:
     def test_logout_requires_login(self, client):
-        resp = client.get("/logout", follow_redirects=False)
+        resp = client.post("/logout", follow_redirects=False)
         # Should redirect to /login
         assert resp.status_code == 302
         assert "/login" in resp.headers["Location"]
@@ -47,9 +47,16 @@ class TestLogout:
     def test_logout_redirects_to_login(self, client, db):
         make_user(db, email="logout_test@example.com")
         login(client, email="logout_test@example.com")
-        resp = client.get("/logout", follow_redirects=False)
+        resp = client.post("/logout", follow_redirects=False)
         assert resp.status_code == 302
         assert "/login" in resp.headers["Location"]
+
+    def test_logout_get_method_not_allowed(self, client, db):
+        make_user(db, email="logout_get@example.com")
+        login(client, email="logout_get@example.com")
+        # GET request to /logout must be rejected with 405 Method Not Allowed to prevent CSRF logout
+        resp = client.get("/logout")
+        assert resp.status_code == 405
 
 
 # ---------------------------------------------------------------------------
