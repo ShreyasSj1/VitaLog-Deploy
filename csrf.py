@@ -44,7 +44,9 @@ def validate_csrf():
     if request.path in exempt_paths:
         return
 
-    token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token")
+    json_data = request.get_json(silent=True) if request.is_json else None
+    json_token = json_data.get("csrf_token") if isinstance(json_data, dict) else None
+    token = request.form.get("csrf_token") or request.headers.get("X-CSRF-Token") or request.headers.get("X-CSRFToken") or json_token
     expected = session.get("_csrf_token")
 
     if not token or not expected or not secrets.compare_digest(str(token), str(expected)):

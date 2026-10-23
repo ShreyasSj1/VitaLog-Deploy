@@ -49,8 +49,13 @@
 
     <!-- ADD FOOD -->
     <div class="card">
-        <h2>Add Food</h2>
-        <p class="text-muted" style="font-size:0.85rem; margin-top:-6px; margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <h2 style="margin:0;">Add Food</h2>
+            <button type="button" class="btn-ai-quick-log" onclick="window.openChatWithPrompt('I had ')">
+                ✨ Log with AI
+            </button>
+        </div>
+        <p class="text-muted" style="font-size:0.85rem; margin-top:4px; margin-bottom:16px;">
             ℹ️ Values are standard estimates. Use "Others" for custom portions or recipes.
         </p>
 

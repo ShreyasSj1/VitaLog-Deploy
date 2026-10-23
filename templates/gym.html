@@ -45,7 +45,12 @@
     {% include "_daily_challenge_card.html" %}
 
     <div class="card">
-        <h2>Log Gym Workout</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h2 style="margin:0;">Log Gym Workout</h2>
+            <button type="button" class="btn-ai-quick-log" onclick="window.openChatWithPrompt('I trained ')">
+                ✨ Log with AI
+            </button>
+        </div>
 
         <form method="POST" id="gymForm">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

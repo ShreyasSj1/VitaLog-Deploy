@@ -10,7 +10,10 @@ from extensions import db
 from models import (
     FoodLog, GymLog, SleepLog, WellbeingLog, User, FoodItem, Exercise, ChatMessage,
     WeightLog, FoodFavorite, SavedMeal, SavedMealItem, WorkoutSet, UserPreference,
-    record_weight_log, get_or_create_user_preferences
+    PendingLogDraft, record_weight_log, get_or_create_user_preferences
+)
+from conversational_logging import (
+    process_conversational_message, confirm_draft, cancel_draft, edit_draft
 )
 from utils import (
     normalize_selected_date, get_week_dates, parse_optional_float, parse_optional_int,
@@ -1086,29 +1089,45 @@ def chat():
     if not user_message:
         return jsonify({"reply": "Please enter a message."}), 400
 
+    # 1. Save user message to database
+    user_msg_db = ChatMessage(user_id=current_user.id, role="user", content=user_message)
+    db.session.add(user_msg_db)
+    db.session.commit()
+
+    # 2. Check Conversational Logging State Machine first
+    try:
+        conv_res = process_conversational_message(current_user.id, user_message)
+        if conv_res and conv_res.get("reply"):
+            reply = conv_res["reply"]
+            assistant_msg_db = ChatMessage(user_id=current_user.id, role="assistant", content=reply)
+            db.session.add(assistant_msg_db)
+            db.session.commit()
+            return jsonify({
+                "reply": reply,
+                "draft": conv_res.get("draft")
+            })
+    except Exception as conv_err:
+        print(f"[ConversationalLogging] Error: {conv_err}")
+        db.session.rollback()
+
     client = get_groq_client()
     if not client:
         return jsonify({
             "reply": "AI Chatbot is not configured. Please set the GROQ_API_KEY environment variable."
         }), 503
 
-    # 1. Save user message to database
-    user_msg_db = ChatMessage(user_id=current_user.id, role="user", content=user_message)
-    db.session.add(user_msg_db)
-    db.session.commit()
-
-    # 2. Retrieve recent conversation history for context (last 15 messages)
+    # 3. Retrieve recent conversation history for context (last 15 messages)
     history = ChatMessage.query.filter_by(user_id=current_user.id)\
         .order_by(ChatMessage.created_at.desc())\
         .limit(15)\
         .all()
     history.reverse()
 
-    # 3. Retrieve stats and build structured context
+    # 4. Retrieve stats and build structured context
     coach_ctx = build_coach_context(current_user.id)
     system_prompt = format_coach_system_prompt(coach_ctx)
 
-    # 4. Format messages for Groq Completions API
+    # 5. Format messages for Groq Completions API
     api_messages = [
         {"role": "system", "content": system_prompt}
     ]
@@ -1143,7 +1162,7 @@ def chat():
 
         reply = chat_completion.choices[0].message.content
 
-        # 5. Save assistant reply to database
+        # 6. Save assistant reply to database
         assistant_msg_db = ChatMessage(user_id=current_user.id, role="assistant", content=reply)
         db.session.add(assistant_msg_db)
         db.session.commit()
@@ -1152,6 +1171,77 @@ def chat():
     except Exception as e:
         print(f"Chatbot Error: {e}")
         return jsonify({"reply": "I'm sorry, I'm having trouble connecting. Try again in a moment!"}), 500
+
+
+# ===========================================================================
+# Conversational Logging Draft Endpoints
+# ===========================================================================
+
+@dashboard_bp.route("/chat/draft/confirm", methods=["POST"])
+@login_required
+def confirm_draft_route():
+    data = request.json or {}
+    draft_id = data.get("draft_id")
+    if not draft_id:
+        return jsonify({"success": False, "error": "Missing draft_id"}), 400
+    res = confirm_draft(draft_id, current_user.id)
+    if res.get("reply"):
+        try:
+            msg = ChatMessage(user_id=current_user.id, role="assistant", content=res["reply"])
+            db.session.add(msg)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    code = res.get("code", 200) if not res.get("success") else 200
+    return jsonify(res), code
+
+
+@dashboard_bp.route("/chat/draft/cancel", methods=["POST"])
+@login_required
+def cancel_draft_route():
+    data = request.json or {}
+    draft_id = data.get("draft_id")
+    if not draft_id:
+        return jsonify({"success": False, "error": "Missing draft_id"}), 400
+    res = cancel_draft(draft_id, current_user.id)
+    if res.get("reply"):
+        try:
+            msg = ChatMessage(user_id=current_user.id, role="assistant", content=res["reply"])
+            db.session.add(msg)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    code = res.get("code", 200) if not res.get("success") else 200
+    return jsonify(res), code
+
+
+@dashboard_bp.route("/chat/draft/edit", methods=["POST"])
+@login_required
+def edit_draft_route():
+    data = request.json or {}
+    draft_id = data.get("draft_id")
+    updates = data.get("updates", {})
+    if not draft_id:
+        return jsonify({"success": False, "error": "Missing draft_id"}), 400
+    res = edit_draft(draft_id, current_user.id, updates)
+    code = res.get("code", 200) if not res.get("success") else 200
+    return jsonify(res), code
+
+
+@dashboard_bp.route("/chat/draft/active", methods=["GET"])
+@login_required
+def active_draft_route():
+    active_draft = PendingLogDraft.query.filter(
+        PendingLogDraft.user_id == current_user.id,
+        PendingLogDraft.state.in_(["collecting", "awaiting_confirmation"])
+    ).first()
+    if active_draft and active_draft.is_expired():
+        active_draft.state = "expired"
+        db.session.commit()
+        active_draft = None
+    if not active_draft:
+        return jsonify({"active_draft": None})
+    return jsonify({"active_draft": active_draft.to_dict()})
 
 
 # ===========================================================================

@@ -43,7 +43,8 @@ CREATE TABLE IF NOT EXISTS food_log (
     calories DOUBLE PRECISION,
     protein DOUBLE PRECISION,
     fat DOUBLE PRECISION,
-    sugar DOUBLE PRECISION
+    sugar DOUBLE PRECISION,
+    provenance VARCHAR(50)
 );
 
 CREATE TABLE IF NOT EXISTS sleep_log (
@@ -188,3 +189,20 @@ CREATE INDEX IF NOT EXISTS idx_chat_user_created ON chat_messages(user_id, creat
 CREATE INDEX IF NOT EXISTS idx_weight_log_user_date ON weight_logs (user_id, date);
 CREATE INDEX IF NOT EXISTS idx_fav_user_cat ON food_favorites (user_id, meal_category);
 CREATE INDEX IF NOT EXISTS idx_workout_set_gym_log ON workout_sets (gym_log_id, set_number);
+
+CREATE TABLE IF NOT EXISTS pending_log_drafts (
+    id BIGSERIAL PRIMARY KEY,
+    draft_id VARCHAR(64) NOT NULL UNIQUE,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    log_type VARCHAR(20) NOT NULL,
+    state VARCHAR(30) NOT NULL DEFAULT 'collecting',
+    draft_data TEXT NOT NULL,
+    missing_fields TEXT,
+    clarification_prompt TEXT,
+    created_at VARCHAR(50) NOT NULL,
+    updated_at VARCHAR(50) NOT NULL,
+    expires_at VARCHAR(50) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_draft_user_state ON pending_log_drafts (user_id, state);
+CREATE INDEX IF NOT EXISTS idx_draft_id ON pending_log_drafts (draft_id);

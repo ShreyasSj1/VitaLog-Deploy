@@ -2308,9 +2308,211 @@ button.secondary-btn {
 .chat-messages::-webkit-scrollbar-track {
     background: transparent;
 }
-.chat-messages::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 3px;
+/* ================= CONVERSATIONAL LOGGING DRAFT PREVIEWS ================= */
+.chat-draft-card {
+    background: var(--card-bg-solid, #ffffff);
+    border: 1.5px solid var(--border-color);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin: 8px 0;
+    max-width: 95%;
+    align-self: flex-start;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+    font-size: 0.9rem;
+    animation: draft-card-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes draft-card-pop {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.chat-draft-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.chat-draft-title {
+    font-weight: 700;
+    color: var(--text-main);
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.chat-draft-badge-type {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.chat-draft-badge-type.food {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.chat-draft-badge-type.workout {
+    background: rgba(139, 92, 246, 0.15);
+    color: #8b5cf6;
+}
+
+.chat-draft-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+}
+
+.chat-draft-table th {
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    padding: 4px 2px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+}
+
+.chat-draft-table td {
+    padding: 6px 2px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    vertical-align: middle;
+}
+
+.badge-draft {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    margin-left: 4px;
+}
+
+.badge-catalog {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.badge-estimate {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+}
+
+.badge-custom {
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366f1;
+}
+
+.chat-draft-totals {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    margin-top: 6px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-top: 2px dashed var(--border-color);
+    color: var(--text-main);
+}
+
+.chat-draft-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.btn-draft-confirm {
+    flex: 2;
+    padding: 8px 14px;
+    background: #10b981;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.btn-draft-confirm:hover {
+    background: #059669;
+}
+
+.btn-draft-confirm:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn-draft-cancel {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-draft-cancel:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+.chat-draft-status-banner {
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 8px;
+    text-align: center;
+}
+
+.chat-draft-status-banner.saved {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.chat-draft-status-banner.cancelled {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+.btn-ai-quick-log {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(99, 102, 241, 0.12));
+    border: 1px solid rgba(139, 92, 246, 0.35);
+    border-radius: 20px;
+    color: var(--accent-primary, #8b5cf6);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+
+.btn-ai-quick-log:hover {
+    background: linear-gradient(135deg, var(--accent-primary, #8b5cf6), var(--accent-secondary, #6366f1));
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 /* ================= CHATBOT MOBILE OPTIMIZATION ================= */

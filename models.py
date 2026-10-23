@@ -44,6 +44,7 @@ class User(UserMixin, db.Model):
     food_favorites = db.relationship('FoodFavorite', backref='user', lazy=True, cascade="all, delete-orphan")
     saved_meals = db.relationship('SavedMeal', backref='user', lazy=True, cascade="all, delete-orphan")
     preferences = db.relationship('UserPreference', backref='user', uselist=False, lazy=True, cascade="all, delete-orphan")
+    pending_drafts = db.relationship('PendingLogDraft', backref='user', lazy=True, cascade="all, delete-orphan")
 
     @property
     def goals(self):
@@ -94,6 +95,7 @@ class FoodLog(db.Model):
     protein = db.Column(db.Float)
     fat = db.Column(db.Float)
     sugar = db.Column(db.Float)
+    provenance = db.Column(db.String(50), nullable=True)  # "catalog", "custom", "ai_estimated", or None (legacy)
 
     __table_args__ = (
         db.Index('idx_food_log_user_date', 'user_id', 'date'),
@@ -304,6 +306,70 @@ class RateLimitEvent(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     key = db.Column(db.String(150), nullable=False, index=True)
     timestamp = db.Column(db.Float, nullable=False, index=True)
+
+
+class PendingLogDraft(db.Model):
+    """Tracks active conversational logging drafts with explicit state machine and expiry."""
+    __tablename__ = "pending_log_drafts"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    draft_id = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    log_type = db.Column(db.String(20), nullable=False)  # "food" or "workout"
+    state = db.Column(db.String(30), nullable=False, default="collecting")  # "collecting", "awaiting_confirmation", "confirmed", "cancelled", "expired"
+    draft_data = db.Column(db.Text, nullable=False)  # JSON string
+    missing_fields = db.Column(db.Text, nullable=True)  # JSON string
+    clarification_prompt = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+    updated_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+    expires_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc() + timedelta(minutes=30)))
+
+    __table_args__ = (
+        db.Index('idx_draft_user_state', 'user_id', 'state'),
+    )
+
+    def is_expired(self):
+        try:
+            exp = parse_utc_iso(self.expires_at)
+            return now_utc() > exp
+        except Exception:
+            return False
+
+    def touch(self):
+        self.updated_at = utc_iso(now_utc())
+        self.expires_at = utc_iso(now_utc() + timedelta(minutes=30))
+
+    def get_data(self):
+        import json as _json
+        try:
+            return _json.loads(self.draft_data) if self.draft_data else {}
+        except Exception:
+            return {}
+
+    def set_data(self, data):
+        import json as _json
+        self.draft_data = _json.dumps(data)
+
+    def to_dict(self):
+        import json as _json
+        try:
+            parsed_data = _json.loads(self.draft_data) if self.draft_data else {}
+        except Exception:
+            parsed_data = {}
+        try:
+            missing = _json.loads(self.missing_fields) if self.missing_fields else []
+        except Exception:
+            missing = []
+        return {
+            "draft_id": self.draft_id,
+            "log_type": self.log_type,
+            "state": self.state,
+            "data": parsed_data,
+            "missing_fields": missing,
+            "clarification_prompt": self.clarification_prompt,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "expires_at": self.expires_at,
+        }
 
 
 # ──────────────────────────────────────────────

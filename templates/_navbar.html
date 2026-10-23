@@ -144,6 +144,8 @@ if (!window.__sharedNavControls) {
         
         <!-- Suggestions Chips -->
         <div class="chat-suggestions" id="chatSuggestions">
+            <button type="button" class="suggestion-chip" data-query="I had 2 rotis and a bowl of dal for lunch 🍛">Log Lunch 🍛</button>
+            <button type="button" class="suggestion-chip" data-query="Bench press 3 sets of 10 at 60kg and 20 min treadmill 🏋️">Log Workout 🏋️</button>
             <button type="button" class="suggestion-chip" data-query="How can I improve my diet today? 🍎">Diet Advice 🍎</button>
             <button type="button" class="suggestion-chip" data-query="Suggest a quick home workout. 🏋️">Workout Plan 🏋️</button>
             <button type="button" class="suggestion-chip" data-query="Tips for a better night's sleep? 🌙">Sleep Tips 🌙</button>
@@ -154,7 +156,7 @@ if (!window.__sharedNavControls) {
         </div>
 
         <div class="chat-input-area">
-            <input type="text" class="chat-input" id="chatInput" placeholder="Ask about your diet, workout..." autocomplete="off">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Log food, workout, or ask coach..." autocomplete="off">
             <button class="chat-send" id="chatSend">🚀</button>
         </div>
     </div>
@@ -176,6 +178,7 @@ if (!window.__sharedNavControls) {
     const typingIndicator = document.getElementById('typingIndicator');
     const chatTooltip = document.getElementById('chatTooltip');
     const tooltipClose = document.getElementById('tooltipClose');
+    const csrfToken = '{{ csrf_token() }}';
 
     if (!chatToggle) return;
 
@@ -203,6 +206,7 @@ if (!window.__sharedNavControls) {
             if (chatTooltip) chatTooltip.classList.remove('show');
             clearTimeout(tooltipTimeout);
             loadChatHistory().then(() => {
+                checkActiveDraft();
                 setTimeout(scrollMessagesToBottom, 100);
             });
         }
@@ -255,7 +259,6 @@ if (!window.__sharedNavControls) {
         chatInput.addEventListener('blur', () => {
             setTimeout(() => {
                 if (window.innerWidth <= 768) {
-                    // Let default CSS max-height take over if closed
                     if (!chatPopup.classList.contains('active')) {
                         chatPopup.style.height = '';
                     }
@@ -285,6 +288,16 @@ if (!window.__sharedNavControls) {
         }
     }
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     function addMessage(text, sender) {
         const msgDiv = document.createElement('div');
         msgDiv.classList.add('message', sender);
@@ -292,6 +305,243 @@ if (!window.__sharedNavControls) {
         chatMessages.appendChild(msgDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
+    function renderDraftCard(draft) {
+        if (!draft || !draft.data) return;
+
+        // Remove any prior rendered card with this draft_id
+        const existing = document.getElementById(`draft-card-${draft.draft_id}`);
+        if (existing) {
+            existing.remove();
+        }
+
+        const card = document.createElement('div');
+        card.id = `draft-card-${draft.draft_id}`;
+        card.className = 'chat-draft-card';
+
+        const isFood = draft.log_type === 'food';
+        const data = draft.data;
+
+        let html = `
+            <div class="chat-draft-header">
+                <span class="chat-draft-title">
+                    ${isFood ? '🥗 Meal Draft' : '🏋️ Workout Draft'}
+                    <span class="text-muted" style="font-size:0.8rem; font-weight:normal;">(${escapeHtml(data.date || 'Today')})</span>
+                </span>
+                <span class="chat-draft-badge-type ${draft.log_type}">${isFood ? escapeHtml(data.meal || 'Food') : 'Workout'}</span>
+            </div>
+        `;
+
+        if (isFood && data.items && data.items.length > 0) {
+            html += `
+                <table class="chat-draft-table">
+                    <thead>
+                        <tr>
+                            <th>Item</th>
+                            <th>Qty</th>
+                            <th>Cals</th>
+                            <th>Macros</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            data.items.forEach(it => {
+                const badgeClass = it.provenance === 'catalog' ? 'badge-catalog' : (it.provenance === 'ai_estimate' || it.is_estimate ? 'badge-estimate' : 'badge-custom');
+                const badgeLabel = it.provenance === 'catalog' ? 'Catalog' : (it.provenance === 'ai_estimate' || it.is_estimate ? 'AI Est' : 'Custom');
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(it.food)}</strong>
+                            <span class="badge-draft ${badgeClass}">${badgeLabel}</span>
+                        </td>
+                        <td>${it.qty}</td>
+                        <td>${Math.round(it.calories || 0)}</td>
+                        <td class="text-muted" style="font-size:0.75rem;">${Math.round(it.protein || 0)}P · ${Math.round(it.fat || 0)}F</td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+
+            if (data.totals) {
+                html += `
+                    <div class="chat-draft-totals">
+                        <span>Total Nutrition:</span>
+                        <span><strong>${Math.round(data.totals.calories || 0)} kcal</strong> (${Math.round(data.totals.protein || 0)}g P · ${Math.round(data.totals.fat || 0)}g F · ${Math.round(data.totals.sugar || 0)}g S)</span>
+                    </div>
+                `;
+            }
+        } else if (!isFood && data.exercises && data.exercises.length > 0) {
+            html += `
+                <table class="chat-draft-table">
+                    <thead>
+                        <tr>
+                            <th>Exercise</th>
+                            <th>Work</th>
+                            <th>Est. Burn</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            data.exercises.forEach(ex => {
+                let workDesc = '';
+                if (ex.is_cardio) {
+                    workDesc = `${ex.duration}m @ ${ex.speed}km/h`;
+                    if (ex.incline > 0) workDesc += ` (inc ${ex.incline})`;
+                } else {
+                    const avgReps = ex.sets > 0 ? Math.round(ex.reps / ex.sets) : ex.reps;
+                    workDesc = `${ex.sets} sets × ${avgReps} reps @ ${ex.weight}kg`;
+                }
+                html += `
+                    <tr>
+                        <td>
+                            <strong>${escapeHtml(ex.exercise)}</strong>
+                            <div class="text-muted" style="font-size:0.75rem;">${escapeHtml(ex.muscle || '')}</div>
+                        </td>
+                        <td>${workDesc}</td>
+                        <td>${Math.round(ex.calories || 0)} kcal</td>
+                    </tr>
+                `;
+            });
+            html += `</tbody></table>`;
+
+            if (data.total_estimated_calories != null) {
+                html += `
+                    <div class="chat-draft-totals">
+                        <span>Total Estimated Burn:</span>
+                        <span><strong>${Math.round(data.total_estimated_calories)} kcal</strong></span>
+                    </div>
+                `;
+            }
+        }
+
+        // Action buttons or Status
+        if (draft.state === 'confirmed') {
+            html += `<div class="chat-draft-status-banner saved">✅ Saved to your logs!</div>`;
+        } else if (draft.state === 'cancelled') {
+            html += `<div class="chat-draft-status-banner cancelled">❌ Draft cancelled</div>`;
+        } else if (draft.state === 'expired') {
+            html += `<div class="chat-draft-status-banner cancelled">⏳ Draft expired</div>`;
+        } else if (draft.state === 'awaiting_confirmation') {
+            html += `
+                <div class="chat-draft-actions" id="actions-${draft.draft_id}">
+                    <button type="button" class="btn-draft-confirm" id="confirm-btn-${draft.draft_id}">
+                        ✓ Confirm & Save
+                    </button>
+                    <button type="button" class="btn-draft-cancel" id="cancel-btn-${draft.draft_id}">
+                        Cancel
+                    </button>
+                </div>
+            `;
+        } else if (draft.state === 'collecting') {
+            html += `
+                <div class="text-muted" style="font-size:0.8rem; margin-top:6px;">
+                    <em>Missing: ${draft.missing_fields ? draft.missing_fields.join(', ') : 'details'}... reply to clarify!</em>
+                </div>
+            `;
+        }
+
+        card.innerHTML = html;
+        chatMessages.appendChild(card);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        // Attach event listeners if awaiting_confirmation
+        if (draft.state === 'awaiting_confirmation') {
+            const confirmBtn = document.getElementById(`confirm-btn-${draft.draft_id}`);
+            const cancelBtn = document.getElementById(`cancel-btn-${draft.draft_id}`);
+
+            if (confirmBtn) {
+                confirmBtn.addEventListener('click', async () => {
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerText = 'Saving...';
+                    try {
+                        const res = await fetch('/chat/draft/confirm', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': csrfToken
+                            },
+                            body: JSON.stringify({ draft_id: draft.draft_id })
+                        });
+                        const resData = await res.json();
+                        if (resData.success) {
+                            const actionsDiv = document.getElementById(`actions-${draft.draft_id}`);
+                            if (actionsDiv) {
+                                actionsDiv.innerHTML = `<div class="chat-draft-status-banner saved">✅ Saved to your logs!</div>`;
+                            }
+                            if (resData.reply) {
+                                addMessage(resData.reply, 'ai');
+                            }
+                            const path = window.location.pathname;
+                            if (path.includes('/food') || path.includes('/gym') || path === '/') {
+                                setTimeout(() => window.location.reload(), 1200);
+                            }
+                        } else {
+                            confirmBtn.disabled = false;
+                            confirmBtn.innerText = '✓ Confirm & Save';
+                            alert(resData.error || 'Failed to save draft.');
+                        }
+                    } catch (err) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerText = '✓ Confirm & Save';
+                        console.error('Error confirming draft:', err);
+                    }
+                });
+            }
+
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', async () => {
+                    cancelBtn.disabled = true;
+                    try {
+                        const res = await fetch('/chat/draft/cancel', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-Token': csrfToken
+                            },
+                            body: JSON.stringify({ draft_id: draft.draft_id })
+                        });
+                        const resData = await res.json();
+                        const actionsDiv = document.getElementById(`actions-${draft.draft_id}`);
+                        if (actionsDiv) {
+                            actionsDiv.innerHTML = `<div class="chat-draft-status-banner cancelled">❌ Draft cancelled</div>`;
+                        }
+                        if (resData.reply) {
+                            addMessage(resData.reply, 'ai');
+                        }
+                    } catch (err) {
+                        cancelBtn.disabled = false;
+                        console.error('Error cancelling draft:', err);
+                    }
+                });
+            }
+        }
+    }
+
+    async function checkActiveDraft() {
+        try {
+            const res = await fetch('/chat/draft/active');
+            if (res.status === 200) {
+                const data = await res.json();
+                if (data && data.active_draft) {
+                    renderDraftCard(data.active_draft);
+                }
+            }
+        } catch (err) {
+            console.error('Error checking active draft:', err);
+        }
+    }
+
+    window.openChatWithPrompt = function(promptText) {
+        if (!chatPopup.classList.contains('active')) {
+            chatPopup.classList.add('active');
+        }
+        chatInput.value = promptText || '';
+        chatInput.focus();
+        loadChatHistory().then(() => {
+            checkActiveDraft();
+            setTimeout(scrollMessagesToBottom, 100);
+        });
+    };
 
     async function sendMessage() {
         const message = chatInput.value.trim();
@@ -305,7 +555,10 @@ if (!window.__sharedNavControls) {
         try {
             const response = await fetch('/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
                 body: JSON.stringify({ message: message })
             });
             
@@ -316,7 +569,15 @@ if (!window.__sharedNavControls) {
 
             const data = await response.json();
             typingIndicator.style.display = 'none';
-            addMessage(data.reply || 'Sorry, I encountered an error.', 'ai');
+            if (data.reply) {
+                addMessage(data.reply, 'ai');
+            }
+            if (data.draft) {
+                renderDraftCard(data.draft);
+            }
+            if (!data.reply && !data.draft) {
+                addMessage('Sorry, I encountered an issue processing that.', 'ai');
+            }
         } catch (error) {
             typingIndicator.style.display = 'none';
             addMessage('Error connecting to the coach. Please check your connection.', 'ai');

@@ -267,6 +267,58 @@ def migration_006_rate_limit_events(conn, dialect: str):
     conn.commit()
 
 
+def migration_007_food_log_provenance(conn, dialect: str):
+    """Add provenance tracking column to food_log table."""
+    if dialect == "postgresql":
+        conn.execute(db.text("ALTER TABLE food_log ADD COLUMN IF NOT EXISTS provenance VARCHAR(50)"))
+    else:
+        existing = {row[1] for row in conn.execute(db.text("PRAGMA table_info(food_log)"))}
+        if "provenance" not in existing:
+            conn.execute(db.text("ALTER TABLE food_log ADD COLUMN provenance VARCHAR(50)"))
+    conn.commit()
+
+
+def migration_008_pending_log_drafts(conn, dialect: str):
+    """Create pending_log_drafts table for conversational multi-turn draft state."""
+    if dialect == "postgresql":
+        conn.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS pending_log_drafts (
+                id SERIAL PRIMARY KEY,
+                draft_id VARCHAR(64) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                log_type VARCHAR(20) NOT NULL,
+                state VARCHAR(30) NOT NULL DEFAULT 'collecting',
+                draft_data TEXT NOT NULL,
+                missing_fields TEXT,
+                clarification_prompt TEXT,
+                created_at VARCHAR(50) NOT NULL,
+                updated_at VARCHAR(50) NOT NULL,
+                expires_at VARCHAR(50) NOT NULL
+            )
+        """))
+        conn.execute(db.text("CREATE INDEX IF NOT EXISTS idx_draft_user_state ON pending_log_drafts (user_id, state)"))
+        conn.execute(db.text("CREATE INDEX IF NOT EXISTS idx_draft_id ON pending_log_drafts (draft_id)"))
+    else:
+        conn.execute(db.text("""
+            CREATE TABLE IF NOT EXISTS pending_log_drafts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                draft_id VARCHAR(64) NOT NULL UNIQUE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                log_type VARCHAR(20) NOT NULL,
+                state VARCHAR(30) NOT NULL DEFAULT 'collecting',
+                draft_data TEXT NOT NULL,
+                missing_fields TEXT,
+                clarification_prompt TEXT,
+                created_at VARCHAR(50) NOT NULL,
+                updated_at VARCHAR(50) NOT NULL,
+                expires_at VARCHAR(50) NOT NULL
+            )
+        """))
+        conn.execute(db.text("CREATE INDEX IF NOT EXISTS idx_draft_user_state ON pending_log_drafts (user_id, state)"))
+        conn.execute(db.text("CREATE INDEX IF NOT EXISTS idx_draft_id ON pending_log_drafts (draft_id)"))
+    conn.commit()
+
+
 # Ordered list of all migrations
 MIGRATIONS = [
     (1, "phase5_user_goals", migration_001_phase5_user_goals),
@@ -275,6 +327,8 @@ MIGRATIONS = [
     (4, "workout_sets", migration_004_workout_sets),
     (5, "user_preferences", migration_005_user_preferences),
     (6, "rate_limit_events", migration_006_rate_limit_events),
+    (7, "food_log_provenance", migration_007_food_log_provenance),
+    (8, "pending_log_drafts", migration_008_pending_log_drafts),
 ]
 
 
