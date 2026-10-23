@@ -48,6 +48,7 @@
         <h2>Log Gym Workout</h2>
 
         <form method="POST" id="gymForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="date" value="{{ selected_date }}">
             <!-- Step 1: Muscle Group -->
             <div class="wizard-step active" id="step1">
@@ -92,6 +93,10 @@
                         <option value="">Select exercise...</option>
                     </select>
                 </div>
+                <div id="exerciseHistoryHint" style="display:none; margin-top:14px; padding:12px 14px; background:rgba(139,92,246,0.08); border-radius:10px; border-left:3px solid var(--accent-primary);">
+                    <div style="font-weight:600; font-size:0.85rem; color:var(--accent-primary); margin-bottom:4px;">📊 Previous Session</div>
+                    <div id="exerciseHistoryContent" style="font-size:0.85rem; color:var(--text-muted);"></div>
+                </div>
                 <div class="wizard-nav">
                     <button type="button" class="btn-back" onclick="prevStep(1)">⬅ Back</button>
                     <button type="button" class="primary-btn btn-next" onclick="nextStep(3)">Next ➔</button>
@@ -101,25 +106,56 @@
             <!-- Step 3: Strength or Cardio Inputs -->
             <div class="wizard-step" id="step3">
                 <h3 id="step3Title">Sets & Reps</h3>
-                <div class="form-row strength-field">
-                    <label>Sets</label>
-                    <div class="preset-container" id="setsPresets">
-                        <div class="preset-btn" onclick="selectVal('sets', 1, this)">1</div>
-                        <div class="preset-btn" onclick="selectVal('sets', 3, this)">3</div>
-                        <div class="preset-btn" onclick="selectVal('sets', 5, this)">5</div>
+
+                <div class="strength-field" style="margin-bottom: 16px;">
+                    <div class="chart-tabs" style="display:flex; gap:8px;">
+                        <button type="button" id="tabQuickMode" class="chart-tab-btn active" style="flex:1;" onclick="setStrengthMode('quick')">⚡ Quick Presets</button>
+                        <button type="button" id="tabDetailedMode" class="chart-tab-btn" style="flex:1;" onclick="setStrengthMode('detailed')">📋 Set-by-Set</button>
                     </div>
-                    <input type="number" name="sets" id="setsInput" class="form-control" placeholder="Custom sets" style="margin-top:12px; display:none;">
                 </div>
 
-                <div class="form-row strength-field" style="margin-top: 24px;">
-                    <label>Reps per set</label>
-                    <div class="preset-container" id="repsPresets">
-                        <div class="preset-btn" onclick="selectVal('reps', 8, this)">8</div>
-                        <div class="preset-btn" onclick="selectVal('reps', 10, this)">10</div>
-                        <div class="preset-btn" onclick="selectVal('reps', 15, this)">15</div>
-                        <div class="preset-btn" onclick="selectVal('reps', 25, this)">25</div>
+                <!-- Quick Presets -->
+                <div id="quickSetsWrapper" class="strength-field">
+                    <div class="form-row">
+                        <label>Sets</label>
+                        <div class="preset-container" id="setsPresets">
+                            <div class="preset-btn" onclick="selectVal('sets', 1, this)">1</div>
+                            <div class="preset-btn" onclick="selectVal('sets', 3, this)">3</div>
+                            <div class="preset-btn" onclick="selectVal('sets', 5, this)">5</div>
+                        </div>
+                        <input type="number" name="sets" id="setsInput" class="form-control" placeholder="Custom sets" style="margin-top:12px; display:none;">
                     </div>
-                    <input type="number" name="reps" id="repsInput" class="form-control" placeholder="Custom reps" style="margin-top:12px; display:none;">
+
+                    <div class="form-row" style="margin-top: 20px;">
+                        <label>Reps per set</label>
+                        <div class="preset-container" id="repsPresets">
+                            <div class="preset-btn" onclick="selectVal('reps', 8, this)">8</div>
+                            <div class="preset-btn" onclick="selectVal('reps', 10, this)">10</div>
+                            <div class="preset-btn" onclick="selectVal('reps', 15, this)">15</div>
+                            <div class="preset-btn" onclick="selectVal('reps', 25, this)">25</div>
+                        </div>
+                        <input type="number" name="reps" id="repsInput" class="form-control" placeholder="Custom reps" style="margin-top:12px; display:none;">
+                    </div>
+                </div>
+
+                <!-- Detailed Set-by-Set Table -->
+                <div id="detailedSetsWrapper" class="strength-field" style="display:none;">
+                    <div class="table-wrapper" style="margin-bottom:12px;">
+                        <table class="data-table" style="font-size:0.88rem; width:100%;">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px;">#</th>
+                                    <th>Weight (kg)</th>
+                                    <th>Reps</th>
+                                    <th>RPE</th>
+                                    <th style="width:36px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="detailedSetsBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="secondary-btn" style="width:100%; padding:8px;" onclick="addSetRow()">+ Add Set</button>
                 </div>
 
                 <div class="form-row cardio-field" style="display:none;">
@@ -171,13 +207,18 @@
             <div class="wizard-step" id="step4">
                 <h3>Workout Details</h3>
                 
-                <div class="form-row strength-field">
+                <div class="form-row strength-field" id="step4WeightRow">
                     <label>Weight (kg)</label>
                     <div class="increment-wrapper">
                         <button type="button" class="increment-btn" onclick="adjWeight(-2.5)">-</button>
                         <input type="number" step="0.5" name="weight" id="weightInput" class="increment-input" value="0">
                         <button type="button" class="increment-btn" onclick="adjWeight(2.5)">+</button>
                     </div>
+                </div>
+
+                <div class="strength-field" id="step4DetailedSummary" style="display:none; margin-bottom:16px; padding:12px 14px; background:rgba(139,92,246,0.08); border-radius:10px;">
+                    <strong style="color:var(--accent-primary); font-size:0.9rem;">Set Breakdown:</strong>
+                    <div id="step4DetailedSetsText" style="margin-top:6px; font-size:0.85rem; color:var(--text-muted);"></div>
                 </div>
                 
                 <div class="form-row" style="margin-top:24px;">
@@ -194,7 +235,7 @@
 
                 <div class="wizard-nav">
                     <button type="button" class="btn-back" onclick="prevStep(3)">⬅ Back</button>
-                    <button type="submit" class="primary-btn">🔥 Save Workout</button>
+                    <button type="submit" class="primary-btn" id="saveWorkoutBtn">🔥 Save Workout</button>
                 </div>
             </div>
         </form>
@@ -226,7 +267,18 @@
                     <td>{{ log.duration | round(1) }} min · {{ log.intensity }}</td>
                     <td>{{ log.speed | round(1) }} km/h{% if log.exercise == 'Inclined Walking' %} · incline {{ log.incline | round(1) }}{% endif %}</td>
                     {% else %}
-                    <td>{{ log.sets }} × {{ log.reps }}</td>
+                    <td>
+                        {{ log.sets }} × {{ log.reps }}
+                        {% if log.sets_detail %}
+                        <div style="display:flex; flex-wrap:wrap; gap:4px; margin-top:6px;">
+                            {% for s in log.sets_detail %}
+                            <span style="font-size:0.75rem; background:rgba(139,92,246,0.12); color:var(--accent-primary); padding:2px 6px; border-radius:4px; font-weight:500;">
+                                #{{ s.set_number }}: {{ s.weight }}kg × {{ s.reps }}{% if s.rpe %} @RPE{{ s.rpe }}{% endif %}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
                     <td>{{ log.weight }} kg</td>
                     {% endif %}
                     <td>{{ log.calories | round }} kcal</td>
@@ -235,6 +287,7 @@
                               action="{{ url_for('dashboard.delete_gym', item_id=log.id) }}"
                               class="inline-form"
                               onsubmit="return confirm('Delete this workout?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <input type="hidden" name="date" value="{{ selected_date }}">
                             <button type="submit" class="action-btn delete-btn">🗑️</button>
                         </form>
@@ -250,8 +303,8 @@
 
 <!-- ================= JS ================= -->
 <script>
-/* -------------------- WIZARD LOGIC -------------------- */
-const exercises = {
+/* -------------------- EXERCISES CATALOG & DYNAMIC LOOKUP -------------------- */
+const fallbackExercises = {
     'Chest': ['Bench Press (Barbell)', 'Bench Press (Dumbbell)', 'Incline Press (Barbell)', 'Incline Press (Dumbbell)', 'Chest Fly (Machine)', 'Chest Fly (Dumbbell)', 'Cable Crossover', 'Pushups', 'Dips (Chest Focus)', 'Peck Deck'],
     'Back': ['Deadlift', 'Pullups', 'Barbell Row', 'One Arm Dumbbell Row', 'Lat Pulldown', 'Seated Cable Row', 'T-Bar Row', 'Hyperextensions', 'Face Pulls', 'Straight Arm Pulldown'],
     'Arms': ['Bicep Curls (Barbell)', 'Bicep Curls (Dumbbell)', 'Hammer Curls', 'Preacher Curls', 'Tricep Pushdown (Cable)', 'Skull Crushers', 'Tricep Extension (Dumbbell)', 'Dips (Tricep Focus)', 'Concentration Curls', 'Overhead Extension'],
@@ -259,7 +312,28 @@ const exercises = {
     'Shoulders': ['Overhead Press (Barbell)', 'Shoulder Press (Dumbbell)', 'Lateral Raises (Dumbbell)', 'Lateral Raises (Cable)', 'Front Raises', 'Reverse Fly', 'Arnold Press', 'Upright Row', 'Shrugs', 'Military Press'],
     'Core': ['Crunches', 'Plank', 'Leg Raises', 'Russian Twists', 'Ab Rollout', 'Mountian Climbers', 'Hanging Leg Raises', 'Treadmill (Running)', 'Cycling', 'Elliptical', 'Inclined Walking']
 };
+let catalogExercises = fallbackExercises;
 const cardioExercises = {{ cardio_exercises | tojson }};
+let strengthMode = 'quick';
+
+async function loadDynamicExercises() {
+    try {
+        const resp = await fetch('/api/exercises');
+        if (resp.ok) {
+            const data = await resp.json();
+            const catalog = {};
+            for (const [mGroup, list] of Object.entries(data)) {
+                catalog[mGroup] = list.map(item => typeof item === 'string' ? item : item.name);
+            }
+            if (Object.keys(catalog).length > 0) {
+                catalogExercises = catalog;
+            }
+        }
+    } catch (e) {
+        console.warn('Using static exercise catalog fallback', e);
+    }
+}
+loadDynamicExercises();
 
 function selectMuscle(muscle, el) {
     document.querySelectorAll('.muscle-card').forEach(c => c.classList.remove('selected'));
@@ -268,17 +342,43 @@ function selectMuscle(muscle, el) {
     
     const exSelect = document.getElementById('exerciseSelect');
     exSelect.innerHTML = '<option value="">Select exercise...</option>';
-    if (exercises[muscle]) {
-        exercises[muscle].forEach(ex => {
-            exSelect.innerHTML += `<option value="${ex}">${ex}</option>`;
-        });
-    }
+    const list = catalogExercises[muscle] || fallbackExercises[muscle] || [];
+    list.forEach(ex => {
+        exSelect.innerHTML += `<option value="${ex}">${ex}</option>`;
+    });
 
     updateExerciseMode();
 }
 
 function currentExerciseIsCardio() {
     return cardioExercises.includes(document.getElementById('exerciseSelect').value);
+}
+
+async function fetchExerciseHistory(exercise) {
+    const hintBox = document.getElementById('exerciseHistoryHint');
+    const content = document.getElementById('exerciseHistoryContent');
+    if (!exercise || currentExerciseIsCardio()) {
+        hintBox.style.display = 'none';
+        return;
+    }
+    try {
+        const resp = await fetch(`/api/exercise-history?exercise=${encodeURIComponent(exercise)}`);
+        if (resp.ok) {
+            const resData = await resp.json();
+            const history = resData.history || [];
+            if (history.length > 0) {
+                const latest = history[history.length - 1];
+                let detailStr = `${latest.sets_count} sets × ${latest.reps} reps @ ${latest.weight}kg`;
+                if (latest.sets && latest.sets.length > 0) {
+                    detailStr = latest.sets.map(s => `${s.weight}kg×${s.reps}`).join(', ');
+                }
+                content.innerHTML = `<strong>Last session (${latest.date}):</strong> ${detailStr} (${latest.calories} kcal est.)`;
+                hintBox.style.display = 'block';
+                return;
+            }
+        }
+    } catch (e) {}
+    hintBox.style.display = 'none';
 }
 
 function updateExerciseMode() {
@@ -295,6 +395,73 @@ function updateExerciseMode() {
     document.querySelectorAll('.cardio-incline-field').forEach(el => {
         el.style.display = exercise === 'Inclined Walking' ? '' : 'none';
     });
+
+    if (exercise) {
+        fetchExerciseHistory(exercise);
+    } else {
+        document.getElementById('exerciseHistoryHint').style.display = 'none';
+    }
+}
+
+/* -------------------- STRENGTH MODE & SET-BY-SET BUILDER -------------------- */
+function setStrengthMode(mode) {
+    strengthMode = mode;
+    const tabQuick = document.getElementById('tabQuickMode');
+    const tabDetailed = document.getElementById('tabDetailedMode');
+    const quickWrapper = document.getElementById('quickSetsWrapper');
+    const detailedWrapper = document.getElementById('detailedSetsWrapper');
+
+    if (mode === 'detailed') {
+        tabQuick.classList.remove('active');
+        tabDetailed.classList.add('active');
+        quickWrapper.style.display = 'none';
+        detailedWrapper.style.display = 'block';
+
+        const tbody = document.getElementById('detailedSetsBody');
+        if (tbody.children.length === 0) {
+            const defaultWeight = parseFloat(document.getElementById('weightInput').value) || 0;
+            addSetRow(defaultWeight, 10);
+            addSetRow(defaultWeight, 10);
+            addSetRow(defaultWeight, 8);
+        }
+    } else {
+        tabQuick.classList.add('active');
+        tabDetailed.classList.remove('active');
+        quickWrapper.style.display = 'block';
+        detailedWrapper.style.display = 'none';
+    }
+}
+
+function reindexSets() {
+    const rows = document.querySelectorAll('#detailedSetsBody tr');
+    rows.forEach((r, idx) => {
+        const numCell = r.querySelector('.set-num-cell');
+        if (numCell) numCell.innerText = idx + 1;
+    });
+}
+
+function addSetRow(weight = 0, reps = 10, rpe = '') {
+    const tbody = document.getElementById('detailedSetsBody');
+    const rowCount = tbody.children.length;
+    const prevWeight = rowCount > 0 ? (parseFloat(tbody.children[rowCount - 1].querySelector('.set-weight-input')?.value) || weight) : weight;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td class="set-num-cell" style="font-weight:600; text-align:center;">${rowCount + 1}</td>
+        <td><input type="number" step="0.5" class="set-weight-input form-control" value="${prevWeight}" style="width:75px; padding:6px 8px;"></td>
+        <td><input type="number" class="set-reps-input form-control" value="${reps}" style="width:65px; padding:6px 8px;"></td>
+        <td><input type="number" step="0.5" class="set-rpe-input form-control" value="${rpe}" placeholder="-" style="width:55px; padding:6px 8px;"></td>
+        <td style="text-align:center;"><button type="button" class="action-btn" style="color:var(--accent-danger); font-size:0.9rem;" onclick="removeSetRow(this)">✖</button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function removeSetRow(btn) {
+    const tr = btn.closest('tr');
+    if (tr) {
+        tr.remove();
+        reindexSets();
+    }
 }
 
 function nextStep(step) {
@@ -304,6 +471,31 @@ function nextStep(step) {
         return alert('Add the time spent for this cardio workout.');
     }
     
+    // Update step 4 visibility based on strength mode
+    if (step === 4 && !currentExerciseIsCardio()) {
+        const weightRow = document.getElementById('step4WeightRow');
+        const detailedSummary = document.getElementById('step4DetailedSummary');
+        const summaryText = document.getElementById('step4DetailedSetsText');
+
+        if (strengthMode === 'detailed') {
+            if (weightRow) weightRow.style.display = 'none';
+            if (detailedSummary) detailedSummary.style.display = 'block';
+
+            const rows = document.querySelectorAll('#detailedSetsBody tr');
+            const summaryParts = [];
+            rows.forEach((r, idx) => {
+                const w = r.querySelector('.set-weight-input')?.value || '0';
+                const rep = r.querySelector('.set-reps-input')?.value || '0';
+                const rpe = r.querySelector('.set-rpe-input')?.value;
+                summaryParts.push(`Set ${idx + 1}: ${w}kg × ${rep} reps${rpe ? ' @RPE ' + rpe : ''}`);
+            });
+            if (summaryText) summaryText.innerText = summaryParts.length > 0 ? summaryParts.join(' · ') : 'No sets entered';
+        } else {
+            if (weightRow) weightRow.style.display = '';
+            if (detailedSummary) detailedSummary.style.display = 'none';
+        }
+    }
+
     document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
     document.getElementById(`step${step}`).classList.add('active');
 }
@@ -338,13 +530,79 @@ function adjWeight(diff) {
     input.value = val;
 }
 
+/* -------------------- FORM SUBMISSION HANDLER -------------------- */
+document.getElementById('gymForm').addEventListener('submit', async function(e) {
+    if (!currentExerciseIsCardio() && strengthMode === 'detailed') {
+        e.preventDefault();
+        const rows = document.querySelectorAll('#detailedSetsBody tr');
+        const setsData = [];
+        rows.forEach(r => {
+            const w = parseFloat(r.querySelector('.set-weight-input')?.value) || 0;
+            const rep = parseInt(r.querySelector('.set-reps-input')?.value) || 0;
+            const rpeStr = r.querySelector('.set-rpe-input')?.value;
+            const rpe = rpeStr ? parseFloat(rpeStr) : null;
+            if (rep > 0) {
+                setsData.push({ reps: rep, weight: w, rpe: rpe });
+            }
+        });
+
+        if (setsData.length === 0) {
+            alert('Please add at least one set with reps.');
+            return false;
+        }
+
+        const payload = {
+            date: document.querySelector('#gymForm input[name="date"]').value,
+            muscle: document.getElementById('muscleInput').value,
+            exercise: document.getElementById('exerciseSelect').value,
+            intensity: document.getElementById('intensityInput').value,
+            sets: setsData
+        };
+
+        const saveBtn = document.getElementById('saveWorkoutBtn');
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerText = 'Saving...';
+        }
+
+        try {
+            const resp = await fetch('/gym/sets/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (resp.ok && data.success) {
+                if (data.is_pr) {
+                    alert(`🏆 New Personal Record for ${payload.exercise}! Estimated 1RM: ${data.estimated_1rm} kg!`);
+                }
+                window.location.href = `{{ url_for('dashboard.gym') }}?date=${encodeURIComponent(payload.date)}`;
+            } else {
+                alert(data.error || 'Failed to save workout.');
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerText = '🔥 Save Workout';
+                }
+            }
+        } catch (err) {
+            alert('Network error saving workout: ' + err);
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerText = '🔥 Save Workout';
+            }
+        }
+    }
+});
+
 document.getElementById('exerciseSelect').addEventListener('change', updateExerciseMode);
 
 {% if last_workout %}
 function repeatLastWorkout() {
     document.getElementById('muscleInput').value = '{{ last_workout.muscle }}';
     
-    // Repopulate explicitly so validation passes
     const exSelect = document.getElementById('exerciseSelect');
     exSelect.innerHTML = `<option value="{{ last_workout.exercise }}">{{ last_workout.exercise }}</option>`;
     exSelect.value = '{{ last_workout.exercise }}';
@@ -361,12 +619,10 @@ function repeatLastWorkout() {
     syncRangeValue('inclineInput', 'inclineValue', 1);
     updateExerciseMode();
     
-    // Highlight presets
     selectVal('sets', '{{ last_workout.sets }}', 
         document.querySelector(`#setsPresets .preset-btn:nth-child(2)`) || document.createElement('div')
-    ); // Optional UI match fallback
+    );
     
-    // Jump straight to final step
     document.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
     document.getElementById('step4').classList.add('active');
 }

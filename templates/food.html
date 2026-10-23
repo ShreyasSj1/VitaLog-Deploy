@@ -4,6 +4,7 @@
 <html lang="en">
 <head>
     {% include "_seo.html" %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -22,13 +23,39 @@
     <!-- DATE SELECTOR -->
     {% include "_date_selector.html" %}
 
+    <!-- QUICK-PICK RECENTS & FAVORITES -->
+    <div class="card" id="quickPickCard" style="margin-bottom: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h2 style="font-size:1.15rem; margin:0;">⚡ Quick Pick (Recents & Favorites)</h2>
+            <small class="text-muted">1-click to select</small>
+        </div>
+        <div id="quickPickChips" style="display:flex; flex-wrap:wrap; gap:8px;">
+            <span class="text-muted" style="font-size:0.85rem;">Loading frequently logged foods...</span>
+        </div>
+    </div>
+
+    <!-- SAVED MEAL COMBINATIONS -->
+    <div class="card" id="savedMealsCard" style="margin-bottom: 20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+            <h2 style="font-size:1.15rem; margin:0;">🍱 Saved Meals & Combos</h2>
+            <button type="button" class="secondary-btn" id="saveCurrentMealBtn" style="padding:6px 12px; font-size:0.82rem;">
+                + Save Today's Food as Combo
+            </button>
+        </div>
+        <div id="savedMealsList" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:12px;">
+            <!-- Loaded dynamically -->
+        </div>
+    </div>
+
     <!-- ADD FOOD -->
     <div class="card">
         <h2>Add Food</h2>
+        <p class="text-muted" style="font-size:0.85rem; margin-top:-6px; margin-bottom:16px;">
+            ℹ️ Values are standard estimates. Use "Others" for custom portions or recipes.
+        </p>
 
         <form method="post" class="food-form">
-
-            <!-- REQUIRED -->
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="date" value="{{ selected_date }}">
 
             <div class="form-row">
@@ -51,20 +78,22 @@
             <!-- OTHERS -->
             <div id="otherFoodFields" class="other-food-fields" style="display:none;">
                 <input type="text" name="other_name" placeholder="Food name">
-                <input type="number" name="other_calories" placeholder="Calories" step="0.1">
-                <input type="number" name="other_protein" placeholder="Protein (g)" step="0.1">
-                <input type="number" name="other_fat" placeholder="Fat (g)" step="0.1">
-                <input type="number" name="other_sugar" placeholder="Sugar (g)" step="0.1">
+                <input type="number" name="other_calories" placeholder="Calories" step="0.1" min="0" max="10000">
+                <input type="number" name="other_protein" placeholder="Protein (g)" step="0.1" min="0" max="1000">
+                <input type="number" name="other_fat" placeholder="Fat (g)" step="0.1" min="0" max="1000">
+                <input type="number" name="other_sugar" placeholder="Sugar (g)" step="0.1" min="0" max="1000">
             </div>
 
             <div class="form-row">
-                <label>Quantity</label>
+                <label>Quantity (servings / pieces)</label>
                 <input
                     type="number"
+                    id="qtyInput"
                     name="qty"
                     value="1"
                     step="0.5"
-                    min="0.5"
+                    min="0.1"
+                    max="100"
                     required
                 >
             </div>
@@ -75,7 +104,7 @@
 
     <!-- LOGGED FOOD -->
     <div class="card">
-        <h2>Logged Food</h2>
+        <h2>Logged Food ({{ selected_date }})</h2>
 
         {% if food_logs %}
         <div class="table-wrapper">
@@ -88,29 +117,29 @@
                 <th>Protein</th>
                 <th>Fat</th>
                 <th>Sugar</th>
-                <th>Action</th>
+                <th style="text-align:right;">Action</th>
             </tr>
 
             {% for f in food_logs %}
             <tr class="meal-{{ f.meal }}">
                 <td>{{ f.meal }}</td>
-                <td>{{ f.food }}</td>
+                <td>
+                    <strong>{{ f.food }}</strong>
+                    <button type="button" class="btn-fav" onclick="toggleFav('{{ f.meal }}', '{{ f.food }}', this)" title="Toggle Favorite" style="background:none; border:none; cursor:pointer; font-size:0.9rem; margin-left:4px;">
+                        ⭐
+                    </button>
+                </td>
                 <td>{{ f.qty | round(2) }}</td>
-                <td>{{ f.calories | round(2) }}</td>
-                <td>{{ f.protein | round(2) }}</td>
-                <td>{{ f.fat | round(2) }}</td>
-                <td>{{ f.sugar | round(2) }}</td>
-                <td class="action-cell">
-                    <a href="/food/edit/{{ f.id }}"
-                       class="action-btn edit-btn"
-                       title="Edit">✏️</a>
-
-                    <form method="post"
-                          action="{{ url_for('dashboard.delete_food', item_id=f.id) }}"
-                          class="inline-form"
-                          onsubmit="return confirm('Delete this item?')">
+                <td>{{ f.calories | round(1) }}</td>
+                <td>{{ f.protein | round(1) }}g</td>
+                <td>{{ f.fat | round(1) }}g</td>
+                <td>{{ f.sugar | round(1) }}g</td>
+                <td style="text-align:right;">
+                    <a href="{{ url_for('dashboard.edit_food', item_id=f.id) }}" class="btn-edit" title="Edit">✏️</a>
+                    <form action="{{ url_for('dashboard.delete_food', item_id=f.id) }}" method="post" style="display:inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="date" value="{{ selected_date }}">
-                        <button type="submit" class="action-btn delete-btn" title="Delete">🗑</button>
+                        <button type="submit" class="btn-delete" title="Delete" onclick="return confirm('Remove this food entry?');">🗑️</button>
                     </form>
                 </td>
             </tr>
@@ -124,38 +153,263 @@
 
 </div>
 
+<!-- SAVE COMBO MODAL -->
+<dialog id="saveComboDialog" style="border:none; border-radius:16px; padding:24px; background:var(--card-bg, #1e293b); color:var(--text-color, #f8fafc); box-shadow:0 20px 40px rgba(0,0,0,0.5); max-width:400px; width:90%;">
+    <h3 style="margin-top:0;">Save Current Food as Combo</h3>
+    <p class="text-muted" style="font-size:0.88rem;">Creates a reusable template containing all foods logged for {{ selected_date }}.</p>
+    <div style="margin:16px 0;">
+        <label for="comboNameInput" style="display:block; margin-bottom:6px; font-size:0.85rem;">Combo Name</label>
+        <input type="text" id="comboNameInput" placeholder="e.g. Daily Hostel Breakfast" style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(148,163,184,0.3); background:rgba(0,0,0,0.2); color:white;">
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:8px;">
+        <button type="button" class="secondary-btn" onclick="document.getElementById('saveComboDialog').close()">Cancel</button>
+        <button type="button" class="primary-btn" id="confirmSaveComboBtn">Save Combo</button>
+    </div>
+</dialog>
+
 <!-- ================= JS ================= -->
 
 <script>
-/* --------- FOOD DROPDOWN + OTHERS ---------- */
 const FOOD_DATA = {{ food_data | tojson }};
 const mealSelect = document.getElementById("mealSelect");
 const foodSelect = document.getElementById("foodSelect");
 const otherFields = document.getElementById("otherFoodFields");
+const qtyInput = document.getElementById("qtyInput");
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content") || "";
 
 mealSelect.addEventListener("change", () => {
+    populateFoodDropdown(mealSelect.value);
+});
+
+function populateFoodDropdown(meal, selectedFood = "") {
     foodSelect.innerHTML = '<option value="">Select Food</option>';
     otherFields.style.display = "none";
 
-    const meal = mealSelect.value;
     if (!meal) return;
 
-    Object.keys(FOOD_DATA[meal]).forEach(food => {
-        const opt = document.createElement("option");
-        opt.value = food;
-        opt.textContent = food;
-        foodSelect.appendChild(opt);
-    });
+    if (FOOD_DATA[meal]) {
+        Object.keys(FOOD_DATA[meal]).forEach(food => {
+            const opt = document.createElement("option");
+            opt.value = food;
+            opt.textContent = food;
+            if (food === selectedFood) opt.selected = true;
+            foodSelect.appendChild(opt);
+        });
+    }
 
     const others = document.createElement("option");
     others.value = "OTHERS";
     others.textContent = "➕ Others";
+    if (selectedFood === "OTHERS") others.selected = true;
     foodSelect.appendChild(others);
-});
+}
 
 foodSelect.addEventListener("change", () => {
-    otherFields.style.display =
-        foodSelect.value === "OTHERS" ? "grid" : "none";
+    otherFields.style.display = foodSelect.value === "OTHERS" ? "grid" : "none";
+});
+
+// Quick-select a food from chip
+function quickSelectFood(meal, foodName) {
+    mealSelect.value = meal;
+    populateFoodDropdown(meal, foodName);
+    qtyInput.focus();
+}
+
+// Toggle food favorite
+async function toggleFav(meal, name, btn) {
+    try {
+        const res = await fetch("/api/food/favorite", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ meal_category: meal, name: name })
+        });
+        const data = await res.json();
+        if (data.is_favorite) {
+            btn.style.opacity = "1";
+            btn.title = "Favorited";
+        } else {
+            btn.style.opacity = "0.5";
+            btn.title = "Not favorited";
+        }
+        loadRecentsAndFavorites();
+    } catch (e) {
+        console.error("Error toggling favorite:", e);
+    }
+}
+
+// Load recents & favorites
+async function loadRecentsAndFavorites() {
+    try {
+        const res = await fetch("/api/food/recents");
+        const data = await res.json();
+        const container = document.getElementById("quickPickChips");
+        container.innerHTML = "";
+
+        const allItems = [];
+        if (data.favorites) {
+            data.favorites.forEach(f => allItems.push({ meal: f.meal, name: f.name, isFav: true }));
+        }
+        if (data.recents) {
+            data.recents.forEach(r => {
+                if (!allItems.some(x => x.name === r.name && x.meal === r.meal)) {
+                    allItems.push({ meal: r.meal, name: r.name, isFav: false });
+                }
+            });
+        }
+
+        if (allItems.length === 0) {
+            container.innerHTML = '<span class="text-muted" style="font-size:0.85rem;">Log your favorite foods to see quick-select shortcuts here.</span>';
+            return;
+        }
+
+        allItems.slice(0, 8).forEach(item => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "secondary-btn";
+            chip.style.cssText = "padding:4px 10px; font-size:0.82rem; border-radius:20px; display:inline-flex; align-items:center; gap:4px;";
+            chip.innerHTML = `${item.isFav ? '⭐' : '⚡'} ${item.name} <small style="opacity:0.6;">(${item.meal})</small>`;
+            chip.onclick = () => quickSelectFood(item.meal, item.name);
+            container.appendChild(chip);
+        });
+    } catch (e) {
+        console.error("Failed to load recents:", e);
+    }
+}
+
+// Load saved meals
+async function loadSavedMeals() {
+    try {
+        const res = await fetch("/saved-meals");
+        const data = await res.json();
+        const container = document.getElementById("savedMealsList");
+        const card = document.getElementById("savedMealsCard");
+
+        if (!data.saved_meals || data.saved_meals.length === 0) {
+            container.innerHTML = '<p class="text-muted" style="font-size:0.85rem; margin:0;">No saved meals yet. Save frequently repeated meals to log them with 1-click.</p>';
+            return;
+        }
+
+        container.innerHTML = "";
+        data.saved_meals.forEach(m => {
+            const box = document.createElement("div");
+            box.style.cssText = "padding:12px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); display:flex; flex-direction:column; justify-content:space-between;";
+            box.innerHTML = `
+                <div>
+                    <div style="font-weight:600; font-size:0.95rem;">🍱 ${m.name}</div>
+                    <small class="text-muted">${m.meal_category} · ${m.total_calories} kcal · ${m.total_protein}g P</small>
+                </div>
+                <div style="display:flex; gap:6px; margin-top:10px;">
+                    <button type="button" class="primary-btn" style="padding:4px 8px; font-size:0.78rem; flex:1;" onclick="logCombo(${m.id})">
+                        Log Today
+                    </button>
+                    <button type="button" class="btn-delete" style="padding:4px 8px; font-size:0.78rem;" onclick="deleteCombo(${m.id})" title="Delete Combo">
+                        🗑️
+                    </button>
+                </div>
+            `;
+            container.appendChild(box);
+        });
+    } catch (e) {
+        console.error("Failed to load saved meals:", e);
+    }
+}
+
+async function logCombo(mealId) {
+    try {
+        const res = await fetch(`/saved-meals/log/${mealId}`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ date: "{{ selected_date }}" })
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert(data.error || "Failed to log saved meal");
+        }
+    } catch (e) {
+        alert("Error logging combo.");
+    }
+}
+
+async function deleteCombo(mealId) {
+    if (!confirm("Delete this saved meal template?")) return;
+    try {
+        await fetch(`/saved-meals/delete/${mealId}`, {
+            method: "POST",
+            headers: { "X-CSRF-Token": csrfToken }
+        });
+        loadSavedMeals();
+    } catch (e) {
+        alert("Error deleting saved meal.");
+    }
+}
+
+// Save current food logs as combo
+const saveBtn = document.getElementById("saveCurrentMealBtn");
+const saveDialog = document.getElementById("saveComboDialog");
+const confirmBtn = document.getElementById("confirmSaveComboBtn");
+
+saveBtn?.addEventListener("click", () => {
+    saveDialog.showModal();
+});
+
+confirmBtn?.addEventListener("click", async () => {
+    const name = document.getElementById("comboNameInput").value.trim();
+    if (!name) return alert("Please enter a combo name.");
+
+    // Extract items from table
+    const items = [];
+    document.querySelectorAll("table tr[class^='meal-']").forEach(tr => {
+        const tds = tr.querySelectorAll("td");
+        if (tds.length >= 7) {
+            items.push({
+                food: tds[1].querySelector("strong")?.innerText.trim() || tds[1].innerText.trim(),
+                qty: parseFloat(tds[2].innerText) || 1.0,
+                calories: parseFloat(tds[3].innerText) || 0.0,
+                protein: parseFloat(tds[4].innerText) || 0.0,
+                fat: parseFloat(tds[5].innerText) || 0.0,
+                sugar: parseFloat(tds[6].innerText) || 0.0,
+            });
+        }
+    });
+
+    if (items.length === 0) {
+        alert("No foods logged for today to save!");
+        saveDialog.close();
+        return;
+    }
+
+    try {
+        const res = await fetch("/saved-meals/create", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ name: name, meal_category: "Combo", items: items })
+        });
+        const data = await res.json();
+        if (data.success) {
+            saveDialog.close();
+            loadSavedMeals();
+        } else {
+            alert(data.error || "Failed to save combo.");
+        }
+    } catch (e) {
+        alert("Error saving combo.");
+    }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadRecentsAndFavorites();
+    loadSavedMeals();
 });
 </script>
 

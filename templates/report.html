@@ -107,6 +107,7 @@
             <button class="chart-tab-btn" onclick="switchReportTab('sleep')">Sleep</button>
             <button class="chart-tab-btn" onclick="switchReportTab('wellbeing')">Well-being</button>
             <button class="chart-tab-btn" onclick="switchReportTab('gym')">Gym Burn</button>
+            <button class="chart-tab-btn" onclick="switchReportTab('weight')">Weight</button>
         </div>
 
         <div class="chart-grid">
@@ -128,6 +129,11 @@
             <div class="chart-block" id="report-gym-block">
                 <h4>Gym Burn (kcal)</h4>
                 <canvas id="gymBurnChart"></canvas>
+            </div>
+
+            <div class="chart-block" id="report-weight-block">
+                <h4>Weight (kg)</h4>
+                <canvas id="weightChart"></canvas>
             </div>
         </div>
     </div>
@@ -280,6 +286,37 @@ new Chart(document.getElementById("gymBurnChart"), {
     options: commonOptions
 });
 
+// Weight chart
+new Chart(document.getElementById("weightChart"), {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [{
+            label: "Weight (kg)",
+            data: {{ weekly_weight | tojson }},
+            borderColor: "#3b82f6",
+            backgroundColor: "rgba(59, 130, 246, 0.12)",
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: isCompactViewport ? 3 : 4,
+            pointHoverRadius: isCompactViewport ? 4.5 : 6,
+            fill: true,
+            spanGaps: true
+        }]
+    },
+    options: {
+        ...commonOptions,
+        scales: {
+            ...commonOptions.scales,
+            y: {
+                ...commonOptions.scales.y,
+                beginAtZero: false,
+                grace: '5%'
+            }
+        }
+    }
+});
+
 function switchReportTab(tabName) {
     // 1. Toggle active class on tab buttons
     const container = document.querySelector('.chart-tabs');
@@ -294,7 +331,7 @@ function switchReportTab(tabName) {
     if (clickedBtn) clickedBtn.classList.add('active');
 
     // 2. Toggle active class on chart blocks
-    const blocks = ['calorie', 'sleep', 'wellbeing', 'gym'];
+    const blocks = ['calorie', 'sleep', 'wellbeing', 'gym', 'weight'];
     blocks.forEach(name => {
         const block = document.getElementById(`report-${name}-block`);
         if (block) {

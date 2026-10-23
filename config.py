@@ -2,7 +2,28 @@ import os
 from pathlib import Path
 
 class Config:
-    SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
+    # Environment mode detection
+    IS_PRODUCTION = (
+        os.environ.get("RENDER") is not None
+        or os.environ.get("FLASK_ENV") == "production"
+        or os.environ.get("FLASK_DEBUG", "true").lower() == "false"
+    )
+
+    _secret = os.environ.get("SECRET_KEY")
+    if IS_PRODUCTION and (not _secret or _secret in ("change-me-in-production", "test-secret-key")):
+        # Only enforce if not explicitly running automated tests
+        if os.environ.get("PYTEST_CURRENT_TEST") is None and not os.environ.get("TESTING"):
+            raise RuntimeError(
+                "CRITICAL SECURITY CONFIGURATION ERROR: SECRET_KEY must be set to a secure, "
+                "random string in production environments."
+            )
+
+    SECRET_KEY = _secret or "dev-insecure-secret-key-for-local-development-only"
+
+    # Session cookie security
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = IS_PRODUCTION
     
     # SQLAlchemy Configuration
     default_db_path = Path(__file__).parent / "fitness.db"

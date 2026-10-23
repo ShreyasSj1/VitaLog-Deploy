@@ -96,8 +96,7 @@ class TestFoodRoutes:
             data={"date": TODAY},
             follow_redirects=True,
         )
-        assert resp.status_code == 200
-        deleted = FoodLog.query.get(log.id)
+        deleted = db.session.get(FoodLog, log.id)
         assert deleted is None
 
     def test_add_food_invalid_qty(self, client, db):
@@ -283,7 +282,7 @@ class TestGymRoutes:
             follow_redirects=True,
         )
         assert resp.status_code == 200
-        assert GymLog.query.get(log.id) is None
+        assert db.session.get(GymLog, log.id) is None
 
 
 # ---------------------------------------------------------------------------

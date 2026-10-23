@@ -28,25 +28,63 @@
   <!-- DASHBOARD SECTIONS -->
   <div class="dashboard-sections">
     
-    <!-- SECTION 1: DAILY BALANCE (PRIMARY) -->
+    <!-- SECTION 1: DAILY ENERGY & TARGET OVERVIEW -->
     <div class="dashboard-section">
       <div class="card highlight">
-        <h2>Daily Calorie Balance</h2>
-        <div class="metric-hero" id="netCalValue">{{ net_calories | round }}</div>
-        <div class="status-badge">
-            {% if net_calories < 0 %}
-                🔥 Calorie Deficit
-            {% else %}
-                ⚖️ Calorie Surplus
-            {% endif %}
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h2>Daily Energy & Target Progress</h2>
+          {% if not has_custom_goals %}
+            <span class="status-badge" style="font-size:0.75rem; background:rgba(148,163,184,0.15); color:var(--text-muted);">
+              Standard target ({{ goals.calories }} kcal) · <a href="{{ url_for('auth.profile') }}" style="color:var(--primary); text-decoration:underline;">Customize</a>
+            </span>
+          {% else %}
+            <span class="status-badge" style="font-size:0.75rem; background:rgba(16,185,129,0.15); color:#10b981;">
+              Custom goal active
+            </span>
+          {% endif %}
         </div>
-        <p class="text-muted" style="margin-top:12px; font-size:0.9rem">
-            {% if net_calories < 0 %}
-                You are burning more than you eat!
+
+        <div class="energy-overview-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:16px;">
+          <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
+            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Food Consumed</span>
+            <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">
+              <span class="count-up">{{ total_calories | round }}</span> <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">/ {{ goals.calories }} kcal</span>
+            </div>
+            <small class="text-muted">Target Adherence: {{ ((total_calories * 100) / (goals.calories or 1)) | round | int }}%</small>
+          </div>
+
+          <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
+            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Active Exercise</span>
+            <div style="font-size:1.6rem; font-weight:700; margin-top:4px; color:#ef4444;">
+              🔥 <span class="count-up">{{ gym_calories | round }}</span> <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">kcal (est.)</span>
+            </div>
+            <small class="text-muted">{{ gym_duration | round }} mins workout logged</small>
+          </div>
+
+          <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
+            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Estimated Net Balance</span>
+            {% if estimated_tdee %}
+              <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">
+                {{ energy_balance | round }} <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">kcal</span>
+              </div>
+              <small class="text-muted">
+                {% if energy_balance < 0 %}
+                  Deficit vs TDEE (~{{ estimated_tdee | round }} kcal)
+                {% else %}
+                  Surplus vs TDEE (~{{ estimated_tdee | round }} kcal)
+                {% endif %}
+              </small>
             {% else %}
-                Energy surplus for muscle growth.
+              <div style="font-size:1.1rem; font-weight:500; margin-top:6px; color:var(--text-muted);">
+                TDEE not configured
+              </div>
+              <small class="text-muted"><a href="{{ url_for('auth.profile') }}" style="color:var(--primary); text-decoration:underline;">Set profile details</a> for energy balance</small>
             {% endif %}
-        </p>
+          </div>
+        </div>
+
+        <!-- Compatibility anchor for test/scripts expecting netCalValue -->
+        <div id="netCalValue" style="display:none">{{ net_calories | round }}</div>
       </div>
     </div>
 
@@ -130,24 +168,22 @@
 
             <!-- Health Score Card -->
             <div class="card score-card">
+                <div style="font-weight:600; font-size:1.05rem; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>Daily Habits</span>
+                    <span style="font-size:0.8rem; font-weight:400; color:var(--text-muted)">Consistency score</span>
+                </div>
                 <div class="score-badge-ring">
                     <canvas id="healthScoreCircle" width="120" height="120"></canvas>
-                    <div class="score-value" style="position: absolute;">{{ health_score }}</div>
+                    <div class="score-value" style="position: absolute;">{{ health_score }}%</div>
                 </div>
                 <div class="reasons-list">
                     {% for reason, type in health_reasons %}
                         <div class="reason-item-wrapper">
-                            <div class="reason-item {{ type }}" onclick="toggleReasonAdvice(this, '{{ reason }}')">
+                            <div class="reason-item {{ type }}">
                                 <span class="reason-text">
-                                    {{ '✔' if type == 'good' else '✖' }} {{ reason }}
+                                    {% if type == 'good' %}✔{% elif type == 'neutral' %}○{% else %}⚠{% endif %} {{ reason }}
                                 </span>
-                                {% if type == 'bad' %}
-                                    <span class="reason-info-icon">ℹ️</span>
-                                {% endif %}
                             </div>
-                            {% if type == 'bad' %}
-                                <div class="reason-advice" style="display: none;"></div>
-                            {% endif %}
                         </div>
                     {% endfor %}
                 </div>

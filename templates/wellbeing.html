@@ -26,6 +26,7 @@
         <h2>Add Well-being Activity</h2>
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="date" value="{{ selected_date }}">
 
             <div class="form-row">
@@ -91,6 +92,7 @@
                               action="{{ url_for('dashboard.delete_wellbeing', item_id=w.id) }}"
                               class="inline-form"
                               onsubmit="return confirm('Delete this activity?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <input type="hidden" name="date" value="{{ selected_date }}">
                             <button type="submit" class="action-btn delete-btn" title="Delete">🗑</button>
                         </form>

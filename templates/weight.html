@@ -1,0 +1,203 @@
+{% set seo_title = "Body Weight Tracker | VitalLog" %}
+{% set noindex = True %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include "_seo.html" %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/manifest.json">
+    <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="{{ 'dark' if dark_mode else '' }}">
+    {% include "_navbar.html" %}
+
+    <div class="container main-content">
+        {% include "_flash_messages.html" %}
+
+        <div class="page-header" style="margin-bottom: 24px;">
+            <h1>Body Weight History</h1>
+            <p class="text-muted">Track your trend weight over time with consistent morning weigh-ins.</p>
+        </div>
+
+        <div class="metrics-grid" style="margin-bottom: 24px;">
+            <!-- Weigh-In Form Card -->
+            <div class="card">
+                <h2>Log Today's Weight</h2>
+                <form action="{{ url_for('dashboard.weight') }}" method="POST" style="margin-top: 16px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    
+                    <div class="form-group" style="margin-bottom: 14px;">
+                        <label for="weight_date">Date</label>
+                        <input type="date" id="weight_date" name="date" class="form-control" value="{{ selected_date }}" max="{{ max_date }}" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 14px;">
+                        <label for="weight_val">Weight (kg)</label>
+                        <input type="number" step="0.1" id="weight_val" name="weight" class="form-control" 
+                               value="{{ current_entry.weight if current_entry else (current_user.weight or '') }}" 
+                               placeholder="e.g. 72.5" min="20" max="500" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <label for="weight_notes">Notes (optional)</label>
+                        <input type="text" id="weight_notes" name="notes" class="form-control" 
+                               value="{{ current_entry.notes if current_entry and current_entry.notes else '' }}" 
+                               placeholder="e.g. Morning fasted, post-bathroom" maxlength="200">
+                    </div>
+
+                    <button type="submit" class="primary-btn" style="width: 100%;">Save Weigh-In</button>
+                </form>
+            </div>
+
+            <!-- Weight Overview & Trend Card -->
+            <div class="card highlight" style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h2>Current Weight</h2>
+                    <div class="metric-hero">
+                        {% if weight_logs and weight_logs|length > 0 %}
+                            {{ weight_logs[0].weight }} <span style="font-size: 1.2rem; font-weight: 400;">kg</span>
+                        {% elif current_user.weight %}
+                            {{ current_user.weight }} <span style="font-size: 1.2rem; font-weight: 400;">kg</span>
+                        {% else %}
+                            -- <span style="font-size: 1.2rem; font-weight: 400;">kg</span>
+                        {% endif %}
+                    </div>
+                    <div class="status-badge" style="background: rgba(255,255,255,0.2); color: white;">
+                        {% if recent_delta is not none %}
+                            {% if recent_delta < 0 %}
+                                📉 {{ recent_delta }} kg vs previous
+                            {% elif recent_delta > 0 %}
+                                📈 +{{ recent_delta }} kg vs previous
+                            {% else %}
+                                ⚖️ Same as previous
+                            {% endif %}
+                        {% else %}
+                            First reading recorded
+                        {% endif %}
+                    </div>
+                </div>
+                <p class="text-muted" style="margin-top: 14px; font-size: 0.88rem; color: rgba(255,255,255,0.85) !important;">
+                    Tip: Daily weight fluctuates due to hydration, sodium, and digestion. Focus on the 7-day moving trend rather than individual days.
+                </p>
+            </div>
+        </div>
+
+        <!-- Weight Trend Chart -->
+        <div class="card" style="margin-bottom: 24px;">
+            <h2>Weight Trend Over Time</h2>
+            <div style="position: relative; height: 260px; width: 100%; margin-top: 16px;">
+                <canvas id="weightTrendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Weight Log History Table -->
+        <div class="card">
+            <h2>Weigh-In History</h2>
+            {% if weight_logs and weight_logs|length > 0 %}
+                <div class="table-responsive" style="margin-top: 14px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Weight (kg)</th>
+                                <th>Notes</th>
+                                <th style="text-align: right;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in weight_logs %}
+                            <tr>
+                                <td><strong>{{ row.date }}</strong></td>
+                                <td>{{ row.weight }} kg</td>
+                                <td class="text-muted">{{ row.notes or "—" }}</td>
+                                <td style="text-align: right;">
+                                    <form action="{{ url_for('dashboard.delete_weight', item_id=row.id) }}" method="POST" onsubmit="return confirm('Delete this weigh-in entry?');" style="display: inline;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn-delete" title="Delete">🗑️</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state" style="padding: 32px; text-align: center;">
+                    <p class="text-muted">No weigh-in records found. Record your first weigh-in above to start seeing your trend chart!</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", async function() {
+        try {
+            const res = await fetch("{{ url_for('dashboard.api_weight_history') }}");
+            const data = await res.json();
+            if (!data.readings || data.readings.length === 0) return;
+
+            const labels = data.readings.map(r => r.date.slice(5)); // MM-DD
+            const weights = data.readings.map(r => r.weight);
+            const movingAvg = data.moving_average;
+
+            const ctx = document.getElementById("weightTrendChart").getContext("2d");
+            new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: "Daily Weight (kg)",
+                            data: weights,
+                            borderColor: "rgba(168, 85, 247, 0.4)",
+                            backgroundColor: "rgba(168, 85, 247, 0.05)",
+                            pointBackgroundColor: "#a855f7",
+                            pointRadius: 4,
+                            fill: true,
+                            tension: 0.2
+                        },
+                        {
+                            label: "7-Day Trend (Moving Avg)",
+                            data: movingAvg,
+                            borderColor: "#10b981",
+                            borderWidth: 2.5,
+                            pointRadius: 0,
+                            borderDash: [4, 4],
+                            fill: false,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            grid: { color: "rgba(148, 163, 184, 0.1)" },
+                            ticks: { color: "#94a3b8" }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: "#94a3b8" }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: "top",
+                            labels: { color: "#94a3b8" }
+                        }
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Failed to load weight chart:", e);
+        }
+    });
+    </script>
+</body>
+</html>

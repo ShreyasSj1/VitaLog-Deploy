@@ -40,6 +40,10 @@ class User(UserMixin, db.Model):
     gym_logs = db.relationship('GymLog', backref='user', lazy=True, cascade="all, delete-orphan")
     reset_tokens = db.relationship('PasswordResetToken', backref='user', lazy=True, cascade="all, delete-orphan")
     chat_messages = db.relationship('ChatMessage', backref='user', lazy=True, cascade="all, delete-orphan")
+    weight_logs = db.relationship('WeightLog', backref='user', lazy=True, cascade="all, delete-orphan")
+    food_favorites = db.relationship('FoodFavorite', backref='user', lazy=True, cascade="all, delete-orphan")
+    saved_meals = db.relationship('SavedMeal', backref='user', lazy=True, cascade="all, delete-orphan")
+    preferences = db.relationship('UserPreference', backref='user', uselist=False, lazy=True, cascade="all, delete-orphan")
 
     @property
     def goals(self):
@@ -140,9 +144,158 @@ class GymLog(db.Model):
     duration = db.Column(db.Float)
     calories = db.Column(db.Float)
 
+    sets_detail = db.relationship('WorkoutSet', backref='gym_log', lazy=True, cascade="all, delete-orphan", order_by="WorkoutSet.set_number")
+
     __table_args__ = (
         db.Index('idx_gym_log_user_date', 'user_id', 'date'),
     )
+
+
+class WeightLog(db.Model):
+    """Historical dated body-weight entries."""
+    __tablename__ = "weight_logs"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    date = db.Column(db.String(20), nullable=False)
+    weight = db.Column(db.Float, nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'date', name='uq_weight_user_date'),
+        db.Index('idx_weight_log_user_date', 'user_id', 'date'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "weight": self.weight,
+            "notes": self.notes or "",
+            "created_at": self.created_at,
+        }
+
+
+class FoodFavorite(db.Model):
+    """User favorite foods for fast 1-click selection."""
+    __tablename__ = "food_favorites"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    meal_category = db.Column(db.String(50), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    created_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'meal_category', 'name', name='uq_fav_user_cat_name'),
+        db.Index('idx_fav_user_cat', 'user_id', 'meal_category'),
+    )
+
+
+class SavedMeal(db.Model):
+    """Saved reusable food combinations / meal templates."""
+    __tablename__ = "saved_meals"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    meal_category = db.Column(db.String(50), nullable=False)
+    notes = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+
+    items = db.relationship('SavedMealItem', backref='saved_meal', lazy=True, cascade="all, delete-orphan")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "meal_category": self.meal_category,
+            "notes": self.notes or "",
+            "total_calories": round(sum(item.calories for item in self.items), 1),
+            "total_protein": round(sum(item.protein for item in self.items), 1),
+            "total_fat": round(sum(item.fat for item in self.items), 1),
+            "total_sugar": round(sum(item.sugar for item in self.items), 1),
+            "items": [item.to_dict() for item in self.items],
+        }
+
+
+class SavedMealItem(db.Model):
+    """Individual food item within a saved meal template."""
+    __tablename__ = "saved_meal_items"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    saved_meal_id = db.Column(db.Integer, db.ForeignKey('saved_meals.id', ondelete='CASCADE'), nullable=False)
+    food = db.Column(db.String(100), nullable=False)
+    qty = db.Column(db.Float, nullable=False, default=1.0)
+    calories = db.Column(db.Float, nullable=False)
+    protein = db.Column(db.Float, nullable=False, default=0.0)
+    fat = db.Column(db.Float, nullable=False, default=0.0)
+    sugar = db.Column(db.Float, nullable=False, default=0.0)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "food": self.food,
+            "qty": self.qty,
+            "calories": self.calories,
+            "protein": self.protein,
+            "fat": self.fat,
+            "sugar": self.sugar,
+        }
+
+
+class WorkoutSet(db.Model):
+    """Set-by-set strength workout records."""
+    __tablename__ = "workout_sets"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    gym_log_id = db.Column(db.Integer, db.ForeignKey('gym_log.id', ondelete='CASCADE'), nullable=False)
+    set_number = db.Column(db.Integer, nullable=False)
+    reps = db.Column(db.Integer, nullable=False)
+    weight = db.Column(db.Float, nullable=False, default=0.0)
+    completed = db.Column(db.Boolean, nullable=False, default=True)
+    rpe = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+
+    __table_args__ = (
+        db.Index('idx_workout_set_gym_log', 'gym_log_id', 'set_number'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "set_number": self.set_number,
+            "reps": self.reps,
+            "weight": self.weight,
+            "completed": self.completed,
+            "rpe": self.rpe,
+        }
+
+
+class UserPreference(db.Model):
+    """User preferences, goals, and constraints for personalized coaching."""
+    __tablename__ = "user_preferences"
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True)
+    fitness_goal = db.Column(db.String(50), nullable=False, default='maintenance')
+    diet_type = db.Column(db.String(50), nullable=False, default='standard')
+    experience_level = db.Column(db.String(50), nullable=False, default='intermediate')
+    equipment_access = db.Column(db.String(50), nullable=False, default='full_gym')
+    target_sleep_hours = db.Column(db.Float, nullable=False, default=8.0)
+    activity_level = db.Column(db.String(50), nullable=False, default='moderate')
+    gender = db.Column(db.String(20), nullable=False, default='unspecified')
+    injury_notes = db.Column(db.Text, nullable=True)
+    custom_coaching_notes = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.String(50), nullable=False, default=lambda: utc_iso(now_utc()))
+
+    def to_dict(self):
+        return {
+            "fitness_goal": self.fitness_goal,
+            "diet_type": self.diet_type,
+            "experience_level": self.experience_level,
+            "equipment_access": self.equipment_access,
+            "target_sleep_hours": self.target_sleep_hours,
+            "activity_level": self.activity_level,
+            "gender": self.gender,
+            "injury_notes": self.injury_notes or "",
+            "custom_coaching_notes": self.custom_coaching_notes or "",
+        }
 
 
 # ──────────────────────────────────────────────
@@ -253,7 +406,7 @@ def seed_lookup_tables():
 
 
 def get_user_by_id(user_id):
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
 
 
 def get_user_by_email(email):
@@ -266,10 +419,15 @@ def parse_admin_emails():
 
 
 def default_role_for_email(email):
+    """Determine role for an email.
+    
+    Security note: Public registration must never automatically grant administrator privileges
+    merely because the user is the first account in an empty database. Administrators must
+    be explicitly designated via the ADMIN_EMAILS environment variable.
+    """
     if email.lower() in parse_admin_emails():
         return "admin"
-    user_count = User.query.count()
-    return "admin" if user_count == 0 else "user"
+    return "user"
 
 
 def claim_legacy_rows(user_id):
@@ -351,3 +509,48 @@ def consume_password_reset_token(token, new_password):
     
     db.session.commit()
     return True
+
+
+def get_or_create_user_preferences(user_id):
+    """Retrieve user preference record, creating a default one if none exists."""
+    pref = UserPreference.query.filter_by(user_id=user_id).first()
+    if not pref:
+        pref = UserPreference(
+            user_id=user_id,
+            fitness_goal="maintenance",
+            diet_type="standard",
+            experience_level="intermediate",
+            equipment_access="full_gym",
+            target_sleep_hours=8.0,
+            activity_level="moderate",
+            gender="unspecified",
+        )
+        db.session.add(pref)
+        db.session.commit()
+    return pref
+
+
+def record_weight_log(user_id, date_str, weight_kg, notes=None):
+    """Upsert a dated body-weight reading and sync the user's current profile weight."""
+    entry = WeightLog.query.filter_by(user_id=user_id, date=date_str).first()
+    if not entry:
+        entry = WeightLog(user_id=user_id, date=date_str, weight=weight_kg, notes=notes)
+        db.session.add(entry)
+    else:
+        entry.weight = weight_kg
+        if notes is not None:
+            entry.notes = notes
+
+    # Sync latest weigh-in to User profile weight
+    latest_entry = (
+        WeightLog.query.filter_by(user_id=user_id)
+        .order_by(WeightLog.date.desc())
+        .first()
+    )
+    if not latest_entry or date_str >= latest_entry.date:
+        user = db.session.get(User, user_id)
+        if user:
+            user.weight = weight_kg
+
+    db.session.commit()
+    return entry

@@ -26,6 +26,7 @@
         <h2>Sleep Log</h2>
 
         <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="date" value="{{ selected_date }}">
 
             <div class="form-row">
@@ -85,6 +86,7 @@
                   action="{{ url_for('dashboard.delete_sleep') }}"
                   class="inline-form"
                   onsubmit="return confirm('Delete sleep log for this date?')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="date" value="{{ selected_date }}">
                 <button type="submit" class="icon-btn danger" title="Delete Sleep Log">🗑</button>
             </form>

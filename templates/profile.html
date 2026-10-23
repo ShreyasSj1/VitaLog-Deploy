@@ -4,6 +4,7 @@
 <html lang="en">
 <head>
     {% include "_seo.html" %}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,10 +20,16 @@
 
     <div class="card profile-card">
         <form method="post" class="profile-form" id="profile-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <!-- ── Personal Information ─────────────────────────── -->
-            <h2>Personal Information</h2>
-            <p class="profile-copy">Keep your basics up to date so your fitness journey stays personal and easy to track.</p>
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <h2>Personal Information</h2>
+                <a href="{{ url_for('dashboard.weight') }}" class="secondary-btn" style="padding:6px 12px; font-size:0.82rem;">
+                    ⚖️ View Weight History
+                </a>
+            </div>
+            <p class="profile-copy">Keep your physical metrics accurate so energy expenditure estimates and health coaching stay grounded.</p>
 
             <div class="form-row">
                 <label>Name</label>
@@ -32,73 +39,184 @@
             <div class="form-row">
                 <label>Email</label>
                 <input type="email" value="{{ profile.email }}" disabled>
-                <small class="profile-help">Your email is locked after registration.</small>
+                <small class="profile-help">Your email is managed securely via Firebase authentication.</small>
             </div>
 
             <div class="profile-grid">
                 <div class="form-row">
                     <label>Age</label>
-                    <input type="number" name="age" min="0" step="1"
+                    <input type="number" id="calc_age" name="age" min="5" max="120" step="1"
                            value="{{ profile.age if profile.age is not none else '' }}"
-                           placeholder="Optional">
+                           placeholder="e.g. 24">
                 </div>
 
                 <div class="form-row">
                     <label>Height (cm)</label>
-                    <input type="number" name="height" min="0" step="0.1"
+                    <input type="number" id="calc_height" name="height" min="30" max="300" step="0.1"
                            value="{{ profile.height if profile.height is not none else '' }}"
-                           placeholder="Optional">
+                           placeholder="e.g. 175">
                 </div>
 
                 <div class="form-row">
                     <label>Weight (kg)</label>
-                    <input type="number" name="weight" min="0" step="0.1"
+                    <input type="number" id="calc_weight" name="weight" min="20" max="500" step="0.1"
                            value="{{ profile.weight if profile.weight is not none else '' }}"
-                           placeholder="Optional">
+                           placeholder="e.g. 72.5">
+                </div>
+
+                <div class="form-row">
+                    <label>Gender</label>
+                    <select name="gender" id="calc_gender">
+                        <option value="male" {% if pref.gender == 'male' %}selected{% endif %}>Male</option>
+                        <option value="female" {% if pref.gender == 'female' %}selected{% endif %}>Female</option>
+                        <option value="unspecified" {% if pref.gender == 'unspecified' %}selected{% endif %}>Prefer not to say</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- ── TDEE / Target Calculator Helper ───────────────── -->
+            <div class="card" style="margin-top: 1.5rem; background: rgba(255,255,255,0.02); border: 1px dashed rgba(148,163,184,0.3);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <h3 style="font-size: 1rem; margin: 0;">🧮 Calorie Target Estimator (Mifflin-St Jeor)</h3>
+                    <button type="button" class="secondary-btn" id="calculateTargetsBtn" style="padding:4px 10px; font-size:0.8rem;">
+                        Estimate Targets
+                    </button>
+                </div>
+                <p class="profile-copy" style="font-size:0.82rem; margin-top:6px;">
+                    Uses standard Basal Metabolic Rate formulas to provide a starting point. Estimates are not medical or dietetic advice.
+                </p>
+                <div id="calculatorResults" style="display:none; margin-top:12px; padding:12px; background:rgba(0,0,0,0.2); border-radius:8px;">
+                    <div style="font-size:0.9rem;">
+                        Estimated Maintenance (TDEE): <strong><span id="estTdeeVal">--</span> kcal/day</strong>
+                    </div>
+                    <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;">
+                        <button type="button" class="primary-btn" style="padding:4px 8px; font-size:0.78rem;" onclick="applyGoal('maintenance')">
+                            Use Maintenance (<span id="btnMaint"></span> kcal)
+                        </button>
+                        <button type="button" class="primary-btn" style="padding:4px 8px; font-size:0.78rem; background:#3b82f6;" onclick="applyGoal('deficit')">
+                            Use Fat Loss Deficit (<span id="btnDeficit"></span> kcal)
+                        </button>
+                        <button type="button" class="primary-btn" style="padding:4px 8px; font-size:0.78rem; background:#10b981;" onclick="applyGoal('surplus')">
+                            Use Muscle Surplus (<span id="btnSurplus"></span> kcal)
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <!-- ── Daily Goals ─────────────────────────────────── -->
             <h2 style="margin-top: 2rem;">Daily Nutrition Goals</h2>
-            <p class="profile-copy">Customise your targets. Leave a field empty to use the app defaults.</p>
+            <p class="profile-copy">
+                {% if profile.goal_calories is not none %}
+                    <span style="color:#10b981; font-weight:600;">Custom targets active.</span> You can modify them below anytime.
+                {% else %}
+                    <span style="color:var(--text-muted);">Using default targets (1,500 kcal / 100g P). Enter your custom numbers below to override.</span>
+                {% endif %}
+            </p>
 
             <div class="profile-grid">
                 <div class="form-row">
                     <label>Calorie Goal (kcal)</label>
-                    <input type="number" name="goal_calories" id="goal_calories" min="0" step="1"
+                    <input type="number" name="goal_calories" id="goal_calories" min="500" max="15000" step="1"
                            value="{{ profile.goal_calories | int if profile.goal_calories is not none else '' }}"
                            placeholder="Default: 1500">
                 </div>
 
                 <div class="form-row">
                     <label>Protein Goal (g)</label>
-                    <input type="number" name="goal_protein" id="goal_protein" min="0" step="0.1"
+                    <input type="number" name="goal_protein" id="goal_protein" min="0" max="1000" step="0.1"
                            value="{{ profile.goal_protein if profile.goal_protein is not none else '' }}"
                            placeholder="Default: 100">
                 </div>
 
                 <div class="form-row">
                     <label>Fat Limit (g)</label>
-                    <input type="number" name="goal_fat" id="goal_fat" min="0" step="0.1"
+                    <input type="number" name="goal_fat" id="goal_fat" min="0" max="1000" step="0.1"
                            value="{{ profile.goal_fat if profile.goal_fat is not none else '' }}"
                            placeholder="Default: 40">
                 </div>
 
                 <div class="form-row">
                     <label>Sugar Limit (g)</label>
-                    <input type="number" name="goal_sugar" id="goal_sugar" min="0" step="0.1"
+                    <input type="number" name="goal_sugar" id="goal_sugar" min="0" max="1000" step="0.1"
                            value="{{ profile.goal_sugar if profile.goal_sugar is not none else '' }}"
                            placeholder="Default: 25">
                 </div>
             </div>
 
-            <button type="submit" class="primary-btn">Save Profile &amp; Goals</button>
+            <!-- ── AI Coach Settings & Preferences ──────────────── -->
+            <h2 style="margin-top: 2rem;">AI Coach Settings &amp; Preferences</h2>
+            <p class="profile-copy">Customize your lifestyle context so the AI fitness coach gives practical, personalized advice.</p>
+
+            <div class="profile-grid">
+                <div class="form-row">
+                    <label>Primary Fitness Objective</label>
+                    <select name="fitness_goal">
+                        <option value="maintenance" {% if pref.fitness_goal == 'maintenance' %}selected{% endif %}>Healthy Maintenance</option>
+                        <option value="fat_loss" {% if pref.fitness_goal == 'fat_loss' %}selected{% endif %}>Fat Loss / Deficit</option>
+                        <option value="muscle_gain" {% if pref.fitness_goal == 'muscle_gain' %}selected{% endif %}>Muscle Gain / Hypertrophy</option>
+                        <option value="strength" {% if pref.fitness_goal == 'strength' %}selected{% endif %}>Strength Progression</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Dietary Style</label>
+                    <select name="diet_type">
+                        <option value="standard" {% if pref.diet_type == 'standard' %}selected{% endif %}>Standard / Omnivore</option>
+                        <option value="vegetarian" {% if pref.diet_type == 'vegetarian' %}selected{% endif %}>Vegetarian</option>
+                        <option value="eggetarian" {% if pref.diet_type == 'eggetarian' %}selected{% endif %}>Eggetarian</option>
+                        <option value="non_vegetarian" {% if pref.diet_type == 'non_vegetarian' %}selected{% endif %}>Non-Vegetarian</option>
+                        <option value="vegan" {% if pref.diet_type == 'vegan' %}selected{% endif %}>Vegan</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Training Experience</label>
+                    <select name="experience_level">
+                        <option value="beginner" {% if pref.experience_level == 'beginner' %}selected{% endif %}>Beginner (&lt; 1 year)</option>
+                        <option value="intermediate" {% if pref.experience_level == 'intermediate' %}selected{% endif %}>Intermediate (1–3 years)</option>
+                        <option value="advanced" {% if pref.experience_level == 'advanced' %}selected{% endif %}>Advanced (3+ years)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Equipment Access</label>
+                    <select name="equipment_access">
+                        <option value="full_gym" {% if pref.equipment_access == 'full_gym' %}selected{% endif %}>Full Commercial Gym</option>
+                        <option value="dumbbells_only" {% if pref.equipment_access == 'dumbbells_only' %}selected{% endif %}>Dumbbells &amp; Bench Only</option>
+                        <option value="home_bodyweight" {% if pref.equipment_access == 'home_bodyweight' %}selected{% endif %}>Home / Bodyweight Only</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Daily Activity Level</label>
+                    <select name="activity_level" id="calc_activity">
+                        <option value="sedentary" {% if pref.activity_level == 'sedentary' %}selected{% endif %}>Sedentary (desk job, low movement)</option>
+                        <option value="light" {% if pref.activity_level == 'light' %}selected{% endif %}>Lightly Active (1–3 workout days/wk)</option>
+                        <option value="moderate" {% if pref.activity_level == 'moderate' %}selected{% endif %}>Moderately Active (3–5 workout days/wk)</option>
+                        <option value="active" {% if pref.activity_level == 'active' %}selected{% endif %}>Very Active (hard training 6+ days/wk)</option>
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <label>Target Sleep (hours/night)</label>
+                    <input type="number" name="target_sleep_hours" step="0.5" min="4" max="14"
+                           value="{{ pref.target_sleep_hours }}" placeholder="8.0">
+                </div>
+            </div>
+
+            <div class="form-row" style="margin-top: 12px;">
+                <label>Injuries, Constraints, or Food Exclusions</label>
+                <textarea name="injury_notes" rows="3" placeholder="e.g. Lower back sensitivity, lactose intolerant, avoiding heavy barbell squats">{{ pref.injury_notes }}</textarea>
+                <small class="profile-help">Your AI coach will respect these constraints when answering queries and suggesting workouts.</small>
+            </div>
+
+            <button type="submit" class="primary-btn" style="margin-top: 1.5rem;">Save Profile &amp; Preferences</button>
         </form>
 
         <!-- ── Data Export ─────────────────────────────────── -->
         <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border, #2a2a2a);">
             <h2>Export Your Data</h2>
-            <p class="profile-copy">Download all your food, sleep, gym, and wellbeing logs as a CSV file.</p>
+            <p class="profile-copy">Download all your food, sleep, gym, and wellbeing logs as a structured CSV file.</p>
             <a href="{{ url_for('dashboard.export_csv') }}" class="secondary-btn"
                id="export-csv-btn" style="display: inline-block; margin-top: 0.5rem;">
                 ⬇ Download CSV (last 30 days)
@@ -107,10 +225,59 @@
 
         <!-- ── Log Out ─────────────────────────────────────── -->
         <form method="post" action="{{ url_for('auth.logout') }}" class="profile-logout-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="secondary-btn profile-logout-btn">Log out</button>
         </form>
     </div>
 </div>
+
+<script>
+let calculatedTdee = 2000;
+
+document.getElementById("calculateTargetsBtn")?.addEventListener("click", () => {
+    const age = parseFloat(document.getElementById("calc_age").value);
+    const height = parseFloat(document.getElementById("calc_height").value);
+    const weight = parseFloat(document.getElementById("calc_weight").value);
+    const gender = document.getElementById("calc_gender").value;
+    const act = document.getElementById("calc_activity").value;
+
+    if (!age || !height || !weight) {
+        alert("Please enter Age, Height, and Weight above first!");
+        return;
+    }
+
+    // Mifflin-St Jeor formula
+    const bmr = (10 * weight) + (6.25 * height) - (5 * age) + (gender === "female" ? -161 : 5);
+    const actFactors = { "sedentary": 1.2, "light": 1.375, "moderate": 1.55, "active": 1.725 };
+    const factor = actFactors[act] || 1.375;
+    calculatedTdee = Math.round(bmr * factor);
+
+    document.getElementById("estTdeeVal").innerText = calculatedTdee;
+    document.getElementById("btnMaint").innerText = calculatedTdee;
+    document.getElementById("btnDeficit").innerText = calculatedTdee - 400;
+    document.getElementById("btnSurplus").innerText = calculatedTdee + 300;
+    document.getElementById("calculatorResults").style.display = "block";
+});
+
+function applyGoal(type) {
+    let cal = calculatedTdee;
+    if (type === "deficit") cal = calculatedTdee - 400;
+    if (type === "surplus") cal = calculatedTdee + 300;
+
+    const weight = parseFloat(document.getElementById("calc_weight").value) || 70;
+    // 1.8g protein per kg of bodyweight
+    const pro = Math.round(weight * 1.8);
+    // 25% of calories from fat (9 kcal per gram)
+    const fat = Math.round((cal * 0.25) / 9);
+
+    document.getElementById("goal_calories").value = cal;
+    document.getElementById("goal_protein").value = pro;
+    document.getElementById("goal_fat").value = fat;
+    document.getElementById("goal_sugar").value = 25;
+
+    alert(`Applied ${type} targets: ${cal} kcal, ${pro}g protein, ${fat}g fat.`);
+}
+</script>
 
 </body>
 </html>

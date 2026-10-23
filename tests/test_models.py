@@ -20,23 +20,20 @@ class TestUserModel:
         user = make_user(db, email="active@example.com")
         assert user.is_active == 1
 
-    def test_user_role_defaults_to_admin_when_first(self, db):
-        """First user in an empty DB should become admin."""
+    def test_user_role_defaults_to_user_even_when_first(self, db):
+        """First user in an empty DB should NOT automatically become admin."""
         from models import User, default_role_for_email
-        # Clear users first
         User.query.delete()
         db.session.commit()
         role = default_role_for_email("first@example.com")
-        assert role == "admin"
-
-    def test_user_role_defaults_to_user_after_first(self, db):
-        from models import User, default_role_for_email
-        # Ensure at least one user exists
-        User.query.delete()
-        db.session.commit()
-        make_user(db, email="admin@example.com")
-        role = default_role_for_email("second@example.com")
         assert role == "user"
+
+    def test_user_role_admin_when_in_admin_emails(self, monkeypatch):
+        from models import default_role_for_email
+        monkeypatch.setenv("ADMIN_EMAILS", "superadmin@example.com,ops@example.com")
+        assert default_role_for_email("superadmin@example.com") == "admin"
+        assert default_role_for_email("OPS@EXAMPLE.COM") == "admin"
+        assert default_role_for_email("regular@example.com") == "user"
 
     def test_get_user_by_email(self, db):
         make_user(db, email="lookup@example.com")

@@ -11,6 +11,7 @@ from config import Config
 from extensions import db
 from models import get_user_by_id, seed_lookup_tables
 from migrations import run_migrations
+from csrf import generate_csrf_token, validate_csrf
 from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
 
@@ -23,6 +24,27 @@ login_manager = LoginManager()
 login_manager.login_view = "auth.login"
 login_manager.init_app(app)
 
+@app.before_request
+def check_csrf():
+    validate_csrf()
+
+@app.after_request
+def apply_security_headers(response):
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    csp = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com; "
+        "img-src 'self' data: https:; "
+        "frame-ancestors 'self';"
+    )
+    response.headers["Content-Security-Policy"] = csp
+    return response
+
 @login_manager.user_loader
 def load_user(user_id):
     return get_user_by_id(int(user_id))
@@ -33,19 +55,17 @@ def unauthorized():
     return redirect(url_for("auth.login"))
 
 @app.context_processor
-def inject_firebase_config():
-    return dict(
-        firebase_api_key=app.config.get("FIREBASE_API_KEY", ""),
-        firebase_auth_domain=app.config.get("FIREBASE_AUTH_DOMAIN", ""),
-        firebase_project_id=app.config.get("FIREBASE_PROJECT_ID", "")
-    )
-
-@app.context_processor
-def inject_week_dates():
+def inject_common_context():
     from utils import normalize_selected_date, get_week_dates
     selected_date = normalize_selected_date(request.args.get("date") or request.form.get("date"))
     week = get_week_dates(selected_date)
-    return dict(week=week)
+    return dict(
+        csrf_token=generate_csrf_token(),
+        firebase_api_key=app.config.get("FIREBASE_API_KEY", ""),
+        firebase_auth_domain=app.config.get("FIREBASE_AUTH_DOMAIN", ""),
+        firebase_project_id=app.config.get("FIREBASE_PROJECT_ID", ""),
+        week=week,
+    )
 
 
 # ================= FIREBASE ADMIN =================

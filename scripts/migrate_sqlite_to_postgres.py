@@ -16,10 +16,19 @@ DATABASE_URL = os.environ.get("DATABASE_URL", "")
 TABLES = [
     "users",
     "password_reset_tokens",
+    "chat_messages",
     "food_log",
     "sleep_log",
     "wellbeing_log",
     "gym_log",
+    "weight_logs",
+    "food_favorites",
+    "saved_meals",
+    "saved_meal_items",
+    "workout_sets",
+    "user_preferences",
+    "food_items",
+    "exercises",
 ]
 
 

@@ -869,6 +869,11 @@ body.dark .progress-track {
     color: var(--danger);
 }
 
+.reason-item.neutral {
+    color: var(--text-muted);
+    cursor: default;
+}
+
 .reason-item.bad:hover {
     background: rgba(239, 68, 68, 0.03);
 }

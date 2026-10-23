@@ -19,6 +19,7 @@
         <a href="{{ url_for('dashboard.gym') }}" class="{{ 'active' if active_page == 'gym' else '' }}">Workout</a>
         <a href="{{ url_for('dashboard.sleep') }}" class="{{ 'active' if active_page == 'sleep' else '' }}">Sleep</a>
         <a href="{{ url_for('dashboard.wellbeing') }}" class="{{ 'active' if active_page == 'wellbeing' else '' }}">Well-being</a>
+        <a href="{{ url_for('dashboard.weight') }}" class="{{ 'active' if active_page == 'weight' else '' }}">Weight</a>
         <a href="{{ url_for('dashboard.report') }}" class="{{ 'active' if active_page == 'report' else '' }}">Report</a>
         {% if current_user.is_authenticated and current_user.role == 'admin' %}
         <a href="{{ url_for('dashboard.admin_users') }}" class="{{ 'active' if active_page == 'admin_users' else '' }}">Users</a>
