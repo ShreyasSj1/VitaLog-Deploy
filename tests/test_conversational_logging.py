@@ -13,7 +13,8 @@ from models import (
 from conversational_logging import (
     process_conversational_message, confirm_draft, cancel_draft, edit_draft,
     match_food_item, match_exercise, infer_meal_category,
-    parse_food_rule_based, parse_workout_rule_based
+    parse_food_rule_based, parse_workout_rule_based,
+    is_valid_food_name, is_confirmation_command, is_cancellation_command
 )
 from tests.conftest import make_user, login
 
@@ -478,3 +479,253 @@ class TestConversationalLoggingEndpoints:
             assert res.status_code == 200
             data = res.get_json()
             assert data.get("draft") is None
+
+
+# ===========================================================================
+# 4. Portion Detection, Scaling & Intent Separation (Milestone I)
+# ===========================================================================
+
+class TestFoodNameValidation:
+    def test_valid_foods_accepted(self):
+        assert is_valid_food_name("boiled eggs") is True
+        assert is_valid_food_name("chapati") is True
+        assert is_valid_food_name("chicken breast") is True
+        assert is_valid_food_name("dal tadka") is True
+        assert is_valid_food_name("grandma stew") is True
+        assert is_valid_food_name("protein powder") is True
+
+    def test_commands_and_filler_rejected(self):
+        assert is_valid_food_name("log it") is False
+        assert is_valid_food_name("Log It") is False
+        assert is_valid_food_name("save it") is False
+        assert is_valid_food_name("confirm") is False
+        assert is_valid_food_name("cancel") is False
+        assert is_valid_food_name("yes") is False
+        assert is_valid_food_name("no") is False
+        assert is_valid_food_name("thanks") is False
+        assert is_valid_food_name("done") is False
+        assert is_valid_food_name("please log") is False
+        assert is_valid_food_name("that's correct") is False
+
+
+class TestPortionDetectionAndScaling:
+    def test_explicit_counts(self, app):
+        with app.app_context():
+            res1 = parse_food_rule_based("2 boiled eggs")
+            assert len(res1["items"]) == 1
+            assert res1["items"][0]["food"] == "Boiled Eggs"
+            assert res1["items"][0]["qty"] == 2.0
+            assert res1["items"][0]["has_quantity"] is True
+            assert res1["items"][0]["calories"] == 156.0
+            assert len(res1["missing_fields"]) == 0
+
+            res2 = parse_food_rule_based("3 chapatis")
+            assert len(res2["items"]) == 1
+            assert res2["items"][0]["food"] == "Chapati"
+            assert res2["items"][0]["qty"] == 3.0
+            assert res2["items"][0]["has_quantity"] is True
+            assert res2["items"][0]["calories"] == 270.0
+            assert len(res2["missing_fields"]) == 0
+
+    def test_volume_and_weight_scaling(self, app):
+        with app.app_context():
+            # Milk 250ml: base 200ml = 120 kcal -> 250ml = 1.25 * 120 = 150 kcal
+            res_milk = parse_food_rule_based("250 ml milk")
+            assert len(res_milk["items"]) == 1
+            assert "Milk" in res_milk["items"][0]["food"]
+            assert res_milk["items"][0]["qty"] == 1.25
+            assert res_milk["items"][0]["calories"] == 150.0
+            assert res_milk["items"][0]["has_quantity"] is True
+            assert len(res_milk["missing_fields"]) == 0
+
+            # Chicken 150g: base 100g = 220 kcal -> 150g = 1.5 * 220 = 330 kcal
+            res_chk = parse_food_rule_based("150 g chicken")
+            assert len(res_chk["items"]) == 1
+            assert "Chicken" in res_chk["items"][0]["food"]
+            assert res_chk["items"][0]["qty"] == 1.5
+            assert res_chk["items"][0]["calories"] == 330.0
+            assert res_chk["items"][0]["has_quantity"] is True
+            assert len(res_chk["missing_fields"]) == 0
+
+    def test_household_portions(self, app):
+        with app.app_context():
+            # 1 bowl of dal
+            res_dal = parse_food_rule_based("1 bowl of dal")
+            assert len(res_dal["items"]) == 1
+            assert res_dal["items"][0]["food"] == "Dal Tadka"
+            assert res_dal["items"][0]["qty"] == 1.0
+            assert res_dal["items"][0]["has_quantity"] is True
+            assert res_dal["items"][0]["calories"] == 180.0
+            assert len(res_dal["missing_fields"]) == 0
+
+            # A plate of rice
+            res_rice = parse_food_rule_based("A plate of rice")
+            assert len(res_rice["items"]) == 1
+            assert "Rice" in res_rice["items"][0]["food"]
+            assert res_rice["items"][0]["qty"] == 1.0
+            assert res_rice["items"][0]["has_quantity"] is True
+            assert len(res_rice["missing_fields"]) == 0
+
+            # A handful of almonds
+            res_alm = parse_food_rule_based("A handful of almonds")
+            assert len(res_alm["items"]) == 1
+            assert res_alm["items"][0]["food"] == "Nuts (Handful)"
+            assert res_alm["items"][0]["qty"] == 1.0
+            assert res_alm["items"][0]["calories"] == 170.0
+            assert res_alm["items"][0]["has_quantity"] is True
+            assert len(res_alm["missing_fields"]) == 0
+
+            # One scoop of protein powder
+            res_pro = parse_food_rule_based("One scoop of protein powder")
+            assert len(res_pro["items"]) == 1
+            assert res_pro["items"][0]["food"] == "Protein Shake (Water)"
+            assert res_pro["items"][0]["qty"] == 1.0
+            assert res_pro["items"][0]["calories"] == 150.0
+            assert res_pro["items"][0]["has_quantity"] is True
+            assert len(res_pro["missing_fields"]) == 0
+
+    def test_mixed_meal_standard_serving_disclosure_rule_d(self, app):
+        with app.app_context():
+            # "2 chapatis, 2 boiled eggs, and dal"
+            # Since chapatis & eggs have explicit quantities, dal should use disclosed standard serving without blocking confirmation!
+            res = parse_food_rule_based("2 chapatis, 2 boiled eggs, and dal")
+            assert len(res["items"]) == 3
+            foods = {it["food"]: it for it in res["items"]}
+            assert "Chapati" in foods
+            assert "Boiled Eggs" in foods
+            assert "Dal Tadka" in foods
+            assert all(it["has_quantity"] is True for it in res["items"])
+            assert "standard estimate" in foods["Dal Tadka"]["serving_desc"]
+            assert len(res["missing_fields"]) == 0
+
+    def test_ambiguous_all_unquantified_triggers_clarification_rule_c(self, app):
+        with app.app_context():
+            res = parse_food_rule_based("I ate rice and chicken")
+            assert len(res["items"]) == 2
+            assert all(it["has_quantity"] is False for it in res["items"])
+            assert len(res["missing_fields"]) > 0
+
+
+class TestConversationalCommandAndIntentSeparation:
+    def test_log_it_with_no_active_draft_creates_no_records(self, app, user_a, db):
+        with app.app_context():
+            FoodLog.query.filter_by(user_id=user_a.id).delete()
+            PendingLogDraft.query.filter_by(user_id=user_a.id).delete()
+            db.session.commit()
+
+            res = process_conversational_message(user_a.id, "Log it")
+            assert "no pending meal or workout draft" in res["reply"].lower()
+            assert res.get("draft") is None
+
+            # Confirm 0 food records and 0 drafts created
+            assert FoodLog.query.filter_by(user_id=user_a.id).count() == 0
+            assert PendingLogDraft.query.filter_by(user_id=user_a.id).count() == 0
+
+    def test_log_it_confirms_existing_draft_and_never_creates_food_named_log_it(self, app, user_a, db):
+        with app.app_context():
+            FoodLog.query.filter_by(user_id=user_a.id).delete()
+            PendingLogDraft.query.filter_by(user_id=user_a.id).delete()
+            db.session.commit()
+
+            # 1. User states meal
+            res1 = process_conversational_message(user_a.id, "2 chapatis and 2 boiled eggs for dinner")
+            assert res1["draft"]["state"] == "awaiting_confirmation"
+
+            # 2. User confirms by saying "Log it"
+            res2 = process_conversational_message(user_a.id, "Log it")
+            assert res2["success"] is True
+            assert res2["draft"]["state"] == "confirmed"
+
+            # 3. Check database logs
+            logs = FoodLog.query.filter_by(user_id=user_a.id).all()
+            assert len(logs) == 2
+            names = [l.food for l in logs]
+            assert "Chapati" in names
+            assert "Boiled Eggs" in names
+            # MUST NEVER contain "Log It"
+            assert not any("log it" in n.lower() for n in names)
+
+    def test_log_it_on_collecting_draft_applies_standard_servings_and_confirms(self, app, user_a, db):
+        with app.app_context():
+            FoodLog.query.filter_by(user_id=user_a.id).delete()
+            PendingLogDraft.query.filter_by(user_id=user_a.id).delete()
+            db.session.commit()
+
+            # 1. Unquantified meal -> collecting state
+            res1 = process_conversational_message(user_a.id, "I ate rice and chicken")
+            assert res1["draft"]["state"] == "collecting"
+
+            # 2. User says "Log it"
+            res2 = process_conversational_message(user_a.id, "Log it")
+            assert res2["success"] is True
+            assert res2["draft"]["state"] == "confirmed"
+
+            # 3. Check database: saved with standard servings, no food named "Log It"
+            logs = FoodLog.query.filter_by(user_id=user_a.id).all()
+            assert len(logs) == 2
+            names = [l.food for l in logs]
+            assert not any("log it" in n.lower() for n in names)
+
+    def test_cancel_with_no_active_draft_creates_no_records(self, app, user_a, db):
+        with app.app_context():
+            FoodLog.query.filter_by(user_id=user_a.id).delete()
+            PendingLogDraft.query.filter_by(user_id=user_a.id).delete()
+            db.session.commit()
+
+            res = process_conversational_message(user_a.id, "Cancel")
+            assert "no pending meal or workout draft" in res["reply"].lower()
+            assert res.get("draft") is None
+            assert FoodLog.query.filter_by(user_id=user_a.id).count() == 0
+
+    def test_corrections_rule_e(self, app, user_a, db):
+        with app.app_context():
+            FoodLog.query.filter_by(user_id=user_a.id).delete()
+            PendingLogDraft.query.filter_by(user_id=user_a.id).delete()
+            db.session.commit()
+
+            # Start with 2 boiled eggs and coffee
+            res1 = process_conversational_message(user_a.id, "2 boiled eggs and 1 cup of coffee for breakfast")
+            assert res1["draft"]["state"] == "awaiting_confirmation"
+
+            # Correction 1: "I had three eggs, not two"
+            res2 = process_conversational_message(user_a.id, "I had three eggs, not two")
+            draft2 = res2["draft"]
+            items2 = draft2["data"]["items"]
+            # Should have exactly 2 items (Boiled Eggs and Coffee), NOT 3
+            assert len(items2) == 2
+            eggs_item = next(it for it in items2 if "Egg" in it["food"])
+            assert eggs_item["qty"] == 3.0
+            assert eggs_item["calories"] == 234.0  # 78 * 3
+
+            # Correction 2: "The coffee had no sugar"
+            res3 = process_conversational_message(user_a.id, "The coffee had no sugar")
+            draft3 = res3["draft"]
+            items3 = draft3["data"]["items"]
+            coffee_item = next(it for it in items3 if "Coffee" in it["food"])
+            assert coffee_item["sugar"] == 0.0
+            assert coffee_item["calories"] < 90.0
+
+            # Confirmation
+            res4 = process_conversational_message(user_a.id, "Save this meal")
+            assert res4["success"] is True
+            saved = FoodLog.query.filter_by(user_id=user_a.id).all()
+            assert len(saved) == 2
+            saved_eggs = next(l for l in saved if "Egg" in l.food)
+            assert saved_eggs.qty == 3.0
+
+    def test_use_standard_serving_resolves_collecting_draft(self, app, user_a, db):
+        with app.app_context():
+            FoodLog.query.filter_by(user_id=user_a.id).delete()
+            PendingLogDraft.query.filter_by(user_id=user_a.id).delete()
+            db.session.commit()
+
+            # Genuinely ambiguous input
+            res1 = process_conversational_message(user_a.id, "I ate rice and chicken")
+            assert res1["draft"]["state"] == "collecting"
+
+            # User says "Use one standard serving"
+            res2 = process_conversational_message(user_a.id, "Use one standard serving")
+            assert res2["draft"]["state"] == "awaiting_confirmation"
+            items = res2["draft"]["data"]["items"]
+            assert all(it["has_quantity"] is True for it in items)
+            assert res2["draft"]["missing_fields"] == []

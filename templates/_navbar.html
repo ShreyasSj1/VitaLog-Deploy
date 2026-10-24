@@ -566,7 +566,7 @@ if (!window.__sharedNavControls) {
             html += `
                 <div class="chat-draft-actions" id="actions-${draft.draft_id}">
                     <button type="button" class="btn-draft-confirm" id="confirm-btn-${draft.draft_id}">
-                        ✓ Confirm & Save
+                        ✓ Confirm & Log ${isFood ? 'Meal' : 'Workout'}
                     </button>
                     <button type="button" class="btn-draft-cancel" id="cancel-btn-${draft.draft_id}">
                         Cancel
@@ -574,9 +574,20 @@ if (!window.__sharedNavControls) {
                 </div>
             `;
         } else if (draft.state === 'collecting') {
+            const missingText = draft.missing_fields && draft.missing_fields.length > 0 
+                ? draft.missing_fields.join(', ') 
+                : 'portion sizes';
             html += `
-                <div class="text-muted" style="font-size:0.8rem; margin-top:6px;">
-                    <em>Missing: ${draft.missing_fields ? draft.missing_fields.join(', ') : 'details'}... reply to clarify!</em>
+                <div class="chat-draft-missing-banner">
+                    ⚠️ Missing: ${escapeHtml(missingText)} — reply in chat to clarify!
+                </div>
+                <div class="chat-draft-actions" id="actions-${draft.draft_id}">
+                    <button type="button" class="btn-draft-confirm" id="confirm-btn-${draft.draft_id}" disabled title="Please clarify missing details in chat">
+                        ✓ Confirm & Log ${isFood ? 'Meal' : 'Workout'}
+                    </button>
+                    <button type="button" class="btn-draft-cancel" id="cancel-btn-${draft.draft_id}">
+                        Cancel
+                    </button>
                 </div>
             `;
         }
@@ -585,12 +596,12 @@ if (!window.__sharedNavControls) {
         chatMessages.appendChild(card);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
-        // Attach event listeners if awaiting_confirmation
-        if (draft.state === 'awaiting_confirmation') {
+        // Attach event listeners for active draft cards
+        if (draft.state === 'awaiting_confirmation' || draft.state === 'collecting') {
             const confirmBtn = document.getElementById(`confirm-btn-${draft.draft_id}`);
             const cancelBtn = document.getElementById(`cancel-btn-${draft.draft_id}`);
 
-            if (confirmBtn) {
+            if (confirmBtn && !confirmBtn.disabled) {
                 confirmBtn.addEventListener('click', async () => {
                     confirmBtn.disabled = true;
                     confirmBtn.innerText = 'Saving...';
@@ -609,6 +620,10 @@ if (!window.__sharedNavControls) {
                             if (actionsDiv) {
                                 actionsDiv.innerHTML = `<div class="chat-draft-status-banner saved">✅ Saved to your logs!</div>`;
                             }
+                            const missingBanner = card.querySelector('.chat-draft-missing-banner');
+                            if (missingBanner) {
+                                missingBanner.remove();
+                            }
                             if (resData.reply) {
                                 addMessage(resData.reply, 'ai');
                             }
@@ -618,12 +633,12 @@ if (!window.__sharedNavControls) {
                             }
                         } else {
                             confirmBtn.disabled = false;
-                            confirmBtn.innerText = '✓ Confirm & Save';
+                            confirmBtn.innerText = `✓ Confirm & Log ${isFood ? 'Meal' : 'Workout'}`;
                             alert(resData.error || 'Failed to save draft.');
                         }
                     } catch (err) {
                         confirmBtn.disabled = false;
-                        confirmBtn.innerText = '✓ Confirm & Save';
+                        confirmBtn.innerText = `✓ Confirm & Log ${isFood ? 'Meal' : 'Workout'}`;
                         console.error('Error confirming draft:', err);
                     }
                 });
@@ -645,6 +660,10 @@ if (!window.__sharedNavControls) {
                         const actionsDiv = document.getElementById(`actions-${draft.draft_id}`);
                         if (actionsDiv) {
                             actionsDiv.innerHTML = `<div class="chat-draft-status-banner cancelled">❌ Draft cancelled</div>`;
+                        }
+                        const missingBanner = card.querySelector('.chat-draft-missing-banner');
+                        if (missingBanner) {
+                            missingBanner.remove();
                         }
                         if (resData.reply) {
                             addMessage(resData.reply, 'ai');

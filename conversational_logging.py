@@ -37,6 +37,80 @@ WORD_TO_NUM = {
 
 MEAL_CATEGORIES = ["Breakfast", "Lunch", "Dinner", "Snacks", "Pre/Post Workout"]
 
+# ───────────────────────────────────────────────────────────────────────────
+# Conversational Commands & Non-Food Filter
+# ───────────────────────────────────────────────────────────────────────────
+
+CONFIRMATION_COMMANDS = {
+    "log it", "log this", "log meal", "log food", "log workout", "log that",
+    "confirm", "confirm and save", "confirm meal", "confirm workout",
+    "save it", "save this", "save this meal", "save meal", "save that", "save",
+    "looks good", "looks great", "that's correct", "thats correct", "that's right", "thats right",
+    "correct", "yes save", "please log", "please add these foods", "please add",
+    "add it", "go ahead"
+}
+
+CANCELLATION_COMMANDS = {
+    "cancel", "cancel this", "cancel that", "cancel draft", "cancel meal", "cancel workout",
+    "discard", "discard this", "never mind", "nevermind", "stop", "delete draft",
+    "don't log", "dont log"
+}
+
+NON_FOOD_TERMS = {
+    "log it", "log this", "log that", "log meal", "log food", "log workout", "log", "logged",
+    "save it", "save this", "save that", "save this meal", "save meal", "save", "saved",
+    "confirm", "confirm and save", "confirm meal", "confirm workout",
+    "cancel", "cancel this", "cancel that", "cancel draft", "cancel meal", "discard",
+    "never mind", "nevermind", "stop", "delete draft", "delete", "edit", "update", "modify",
+    "that's correct", "thats correct", "that's right", "thats right", "correct",
+    "looks good", "looks great", "yes", "no", "yeah", "nope", "ok", "okay", "sure",
+    "thanks", "thank you", "please", "done", "great", "cool", "hello", "hi", "hey",
+    "use standard serving", "use standard servings", "standard serving", "standard servings",
+    "what did i eat", "how many calories", "help", "coach", "today", "yesterday",
+    "breakfast", "lunch", "dinner", "snack", "snacks", "meal", "food",
+}
+
+
+def is_confirmation_command(text: str) -> bool:
+    """Check if message is an explicit confirmation command."""
+    clean = re.sub(r"[^\w\s]", "", text).strip().lower()
+    if clean in CONFIRMATION_COMMANDS:
+        return True
+    for cmd in CONFIRMATION_COMMANDS:
+        if clean == cmd or clean.startswith(cmd + " ") or clean.endswith(" " + cmd):
+            return True
+    return False
+
+
+def is_cancellation_command(text: str) -> bool:
+    """Check if message is an explicit cancellation command."""
+    clean = re.sub(r"[^\w\s]", "", text).strip().lower()
+    if clean in CANCELLATION_COMMANDS:
+        return True
+    for cmd in CANCELLATION_COMMANDS:
+        if clean == cmd or clean.startswith(cmd + " ") or clean.endswith(" " + cmd):
+            return True
+    return False
+
+
+def is_valid_food_name(name: str) -> bool:
+    """Validate that candidate string represents an actual food item, rejecting commands, verbs, filler."""
+    if not name or not isinstance(name, str):
+        return False
+    clean = re.sub(r"[^\w\s]", "", name).strip().lower()
+    if not clean or len(clean) < 2:
+        return False
+    if clean in NON_FOOD_TERMS:
+        return False
+    if is_confirmation_command(clean) or is_cancellation_command(clean):
+        return False
+    for verb in ["log ", "save ", "cancel ", "confirm ", "delete ", "discard "]:
+        if clean.startswith(verb):
+            return False
+    if clean in {"eat", "ate", "eating", "had", "have", "drink", "drank", "drinking", "trained", "workout", "gym", "it", "this", "that"}:
+        return False
+    return True
+
 
 # ───────────────────────────────────────────────────────────────────────────
 # Catalog Matching & Aliasing
@@ -75,6 +149,7 @@ FOOD_ALIASES = {
     "chicken biryani": "Chicken Biryani",
     "biryani": "Chicken Biryani",
     "grilled chicken": "Grilled Chicken",
+    "chicken breast": "Grilled Chicken",
     "fish curry": "Fish Curry",
     "fish": "Fish Curry",
     "curd": "Curd (Plain)",
@@ -91,7 +166,19 @@ FOOD_ALIASES = {
     "bananas": "Banana",
     "protein shake": "Protein Shake (Water)",
     "shake": "Protein Shake (Water)",
+    "protein powder": "Protein Shake (Water)",
+    "whey": "Protein Shake (Water)",
+    "whey protein": "Protein Shake (Water)",
+    "scoop of protein": "Protein Shake (Water)",
     "protein bar": "Protein Bar",
+    "almonds": "Nuts (Handful)",
+    "almond": "Nuts (Handful)",
+    "nuts": "Nuts (Handful)",
+    "apple": "Fruit Bowl",
+    "apples": "Fruit Bowl",
+    "fruits": "Fruit Bowl",
+    "fruit": "Fruit Bowl",
+    "fruit bowl": "Fruit Bowl",
     "pb": "Peanut Butter Sandwich",
     "peanut butter": "Peanut Butter Sandwich",
     "pb sandwich": "Peanut Butter Sandwich",
@@ -148,8 +235,10 @@ EXERCISE_ALIASES = {
 
 def match_food_item(name: str) -> Optional[Dict[str, Any]]:
     """Match a natural language food string against known catalogs."""
+    if not name:
+        return None
     clean = name.strip().lower()
-    if not clean:
+    if not clean or not is_valid_food_name(clean):
         return None
 
     # Check direct alias
@@ -262,46 +351,169 @@ def infer_meal_category(text: str) -> str:
 # ───────────────────────────────────────────────────────────────────────────
 
 def parse_food_rule_based(text: str) -> Dict[str, Any]:
-    """Deterministic extractor for food queries when LLM is unavailable."""
+    """Deterministic extractor for food queries with portion detection, scaling, and validation."""
     meal = infer_meal_category(text)
     items = []
     missing_fields = []
 
-    # Common splitting patterns: "and", commas
+    # Strip correction artifacts (Rule E)
     normalized = text.lower()
-    for prep in ["i had", "i ate", "i consumed", "logged", "for breakfast", "for lunch", "for dinner", "for snacks"]:
-        normalized = normalized.replace(prep, "")
+    normalized = re.sub(
+        r"\b(?:not|instead of)\s+(?:\d+(?:\.\d+)?|a|an|one|two|three|four|five|six|seven|eight|nine|ten)\b",
+        "",
+        normalized
+    )
 
-    parts = re.split(r",|\band\b", normalized)
+    # Strip conversational prefixes
+    for prep in [
+        "i had", "i ate", "i consumed", "i drank", "i took", "logged",
+        "for breakfast", "for lunch", "for dinner", "for snacks", "for my meal",
+        "please log", "please add these foods", "please add", "add", "log"
+    ]:
+        normalized = re.sub(rf"\b{re.escape(prep)}\b", "", normalized)
+
+    # Split on commas, "and", "with", "plus"
+    parts = re.split(r",|\band\b|\bwith\b|\bplus\b", normalized)
+
+    household_units_pattern = (
+        r"(?:(a|an|one|two|three|four|five|six|seven|eight|nine|ten|half|quarter|couple|few|\d+(?:\.\d+)?)\s+)?"
+        r"(bowl|bowls|plate|plates|cup|cups|handful|handfuls|scoop|scoops|"
+        r"glass|glasses|slice|slices|piece|pieces|serving|servings|bottle|bottles)(?:\s+of)?\b"
+    )
+
+    raw_parsed_items = []
+
     for part in parts:
         segment = part.strip()
         if not segment:
             continue
 
-        # Check for leading number or number word
-        tokens = segment.split()
         qty = 1.0
         has_qty = False
-        food_tokens = []
+        serving_desc = ""
+        food_candidate = ""
 
-        for idx, token in enumerate(tokens):
-            if token in WORD_TO_NUM:
-                qty = WORD_TO_NUM[token]
-                has_qty = True
-            elif re.match(r"^\d+(?:\.\d+)?$", token):
-                qty = float(token)
-                has_qty = True
-            elif token in ["servings", "serving", "cups", "cup", "pieces", "piece", "glasses", "glass", "bowls", "bowl"]:
-                has_qty = True
+        # Check 1: Volume in ml / liters (e.g. "250 ml milk", "1l water")
+        vol_match = re.search(r"(\d+(?:\.\d+)?)\s*(ml|milliliters?|millilitres?|l|liters?|litres?)\b", segment)
+        # Check 2: Weight in g / kg (e.g. "150 g chicken", "150g grilled chicken")
+        wt_match = re.search(r"(\d+(?:\.\d+)?)\s*(g|gm|gms|grams?|kg|kgs|kilograms?)\b", segment)
+        # Check 3: Household units (e.g. "1 bowl of dal", "a plate of rice", "one scoop of protein powder")
+        hh_match = re.search(household_units_pattern, segment)
+
+        if vol_match:
+            val = float(vol_match.group(1))
+            unit = vol_match.group(2).lower()
+            ml = val * 1000.0 if unit.startswith("l") else val
+            has_qty = True
+            remaining = segment[:vol_match.start()] + " " + segment[vol_match.end():]
+            food_candidate = re.sub(r"^(?:of|a|an|the|some)\s+", "", remaining.strip()).strip()
+
+            # Milk (200ml) is base 200ml
+            qty = round(ml / 200.0, 2)
+            disp_ml = int(ml) if ml.is_integer() else ml
+            serving_desc = f"{disp_ml} ml"
+
+        elif wt_match:
+            val = float(wt_match.group(1))
+            unit = wt_match.group(2).lower()
+            grams = val * 1000.0 if unit.startswith("k") else val
+            has_qty = True
+            remaining = segment[:wt_match.start()] + " " + segment[wt_match.end():]
+            food_candidate = re.sub(r"^(?:of|a|an|the|some)\s+", "", remaining.strip()).strip()
+
+            # Chicken (100g base)
+            if "chicken" in food_candidate:
+                qty = round(grams / 100.0, 2)
+                if food_candidate == "chicken":
+                    food_candidate = "grilled chicken"
             else:
-                food_tokens.append(token)
+                qty = round(grams / 100.0, 2)
+            disp_g = int(grams) if grams.is_integer() else grams
+            serving_desc = f"{disp_g} g"
 
-        food_candidate = " ".join(food_tokens).strip()
-        food_candidate = re.sub(r"^(?:of|a|an|the|some)\s+", "", food_candidate, flags=re.IGNORECASE).strip()
-        if not food_candidate:
+        elif hh_match:
+            num_token = (hh_match.group(1) or "1").lower()
+            unit_token = hh_match.group(2).lower()
+            qty = WORD_TO_NUM.get(num_token, 1.0)
+            if re.match(r"^\d+(?:\.\d+)?$", num_token):
+                qty = float(num_token)
+            has_qty = True
+            remaining = segment[:hh_match.start()] + " " + segment[hh_match.end():]
+            food_candidate = re.sub(r"^(?:of|a|an|the|some)\s+", "", remaining.strip()).strip()
+            serving_desc = f"{int(qty) if qty.is_integer() else qty} {unit_token}"
+
+        else:
+            # Check 4: Counts (e.g. "2 boiled eggs", "3 chapatis", "1 dosa")
+            tokens = segment.split()
+            food_tokens = []
+            for token in tokens:
+                if token in WORD_TO_NUM and not has_qty:
+                    qty = WORD_TO_NUM[token]
+                    has_qty = True
+                elif re.match(r"^\d+(?:\.\d+)?$", token) and not has_qty:
+                    qty = float(token)
+                    has_qty = True
+                elif re.match(r"^(?:servings?|pieces?|slices?)$", token):
+                    has_qty = True
+                else:
+                    food_tokens.append(token)
+
+            food_candidate = " ".join(food_tokens).strip()
+            food_candidate = re.sub(r"^(?:of|a|an|the|some)\s+", "", food_candidate).strip()
+            if has_qty:
+                serving_desc = f"{int(qty) if qty.is_integer() else qty} serving{'s' if qty != 1 else ''}"
+            else:
+                qty = 1.0
+                has_qty = False
+                serving_desc = "1 serving"
+
+        # Final cleanup and validation of candidate string
+        food_candidate = re.sub(r"^(?:of|a|an|the|some)\s+", "", food_candidate).strip()
+        if not is_valid_food_name(food_candidate):
             continue
 
-        matched = match_food_item(food_candidate)
+        raw_parsed_items.append({
+            "candidate": food_candidate,
+            "qty": qty,
+            "has_qty": has_qty,
+            "serving_desc": serving_desc,
+        })
+
+    if not raw_parsed_items:
+        return {
+            "intent": "food_log",
+            "meal": meal,
+            "meal_category": meal,
+            "date": get_today().isoformat(),
+            "items": [],
+            "missing_fields": [],
+            "totals": {"calories": 0.0, "protein": 0.0, "fat": 0.0, "sugar": 0.0}
+        }
+
+    # Rule D vs Rule C enforcement:
+    num_with_qty = sum(1 for it in raw_parsed_items if it["has_qty"])
+    num_without_qty = sum(1 for it in raw_parsed_items if not it["has_qty"])
+
+    for raw in raw_parsed_items:
+        fc = raw["candidate"]
+        qty = raw["qty"]
+        has_qty = raw["has_qty"]
+        serving_desc = raw["serving_desc"]
+
+        matched = match_food_item(fc)
+
+        # Rule D: If at least one item has explicit quantity and this one does not,
+        # apply disclosed standard serving so confirmation is not blocked!
+        if not has_qty and num_with_qty > 0:
+            has_qty = True
+            qty = 1.0
+            if matched and any(w in matched["name"].lower() for w in ["dal", "sambar", "rasam", "curd", "soup"]):
+                serving_desc = "1 bowl (standard estimate)"
+            elif matched and "rice" in matched["name"].lower():
+                serving_desc = "1 plate (standard estimate)"
+            else:
+                serving_desc = "1 serving (standard estimate)"
+
         if matched:
             items.append({
                 "food": matched["name"],
@@ -314,19 +526,17 @@ def parse_food_rule_based(text: str) -> Dict[str, Any]:
                 "sugar": round(matched["sugar"] * qty, 1),
                 "provenance": "catalog",
                 "is_estimate": False,
-                "serving_desc": f"{qty} serving{'s' if qty != 1 else ''}"
+                "serving_desc": serving_desc or f"{qty} serving{'s' if qty != 1 else ''}"
             })
             if not has_qty:
                 missing_fields.append(f"portion for {matched['name']}")
         else:
-            # Unrecognized food: transparent AI estimate fallback
-            # Generate conservative, clearly identified estimate
             est_cal = 200.0 * qty
             est_pro = 6.0 * qty
             est_fat = 5.0 * qty
             est_sug = 2.0 * qty
             items.append({
-                "food": food_candidate.title(),
+                "food": fc.title(),
                 "meal_category": meal,
                 "qty": qty,
                 "has_quantity": has_qty,
@@ -336,10 +546,15 @@ def parse_food_rule_based(text: str) -> Dict[str, Any]:
                 "sugar": round(est_sug, 1),
                 "provenance": "ai_estimate",
                 "is_estimate": True,
-                "serving_desc": f"{qty} serving (Estimated)"
+                "serving_desc": serving_desc or f"{qty} serving (Estimated)"
             })
             if not has_qty:
-                missing_fields.append(f"portion for {food_candidate.title()}")
+                missing_fields.append(f"portion for {fc.title()}")
+
+    # Rule C: Genuinely ambiguous input with 0 items having quantity
+    if num_with_qty == 0 and num_without_qty > 0:
+        if not missing_fields:
+            missing_fields = ["portion sizes"]
 
     return {
         "intent": "food_log",
@@ -556,6 +771,74 @@ def call_groq_interpretation(message: str, active_draft_data: Optional[Dict] = N
 # Conversational Logging Controller & State Machine
 # ───────────────────────────────────────────────────────────────────────────
 
+def apply_standard_servings_to_draft(draft: PendingLogDraft) -> Dict[str, Any]:
+    """Apply default standard servings to all unresolved items in a pending food draft."""
+    data = draft.get_data()
+    items = data.get("items", [])
+    for it in items:
+        it["has_quantity"] = True
+        if not it.get("qty") or it.get("qty") <= 0:
+            it["qty"] = 1.0
+        desc = it.get("serving_desc", "")
+        if "standard estimate" not in desc and "standard serving" not in desc:
+            it["serving_desc"] = f"{it.get('qty', 1.0)} serving (standard estimate)"
+
+    data["totals"] = {
+        "calories": round(sum(i.get("calories", 0.0) for i in items), 1),
+        "protein": round(sum(i.get("protein", 0.0) for i in items), 1),
+        "fat": round(sum(i.get("fat", 0.0) for i in items), 1),
+        "sugar": round(sum(i.get("sugar", 0.0) for i in items), 1),
+    }
+    data["missing_fields"] = []
+    draft.set_data(data)
+    draft.missing_fields = json.dumps([])
+    draft.clarification_prompt = None
+    draft.state = "awaiting_confirmation"
+    draft.touch()
+    db.session.commit()
+
+    meal = data.get("meal", "meal")
+    draft_dict = draft.to_dict()
+    draft_dict["actions"] = ["confirm", "edit", "cancel"]
+    return {
+        "reply": f"Applied standard servings to your **{meal}** draft. Review below and confirm to save:",
+        "draft": draft_dict,
+    }
+
+
+def handle_beverage_sugar_update(draft: PendingLogDraft) -> Optional[Dict[str, Any]]:
+    """Handle sugar removal from coffee/tea in an active draft (Rule E)."""
+    data = draft.get_data()
+    items = data.get("items", [])
+    updated = False
+    for it in items:
+        if any(w in it.get("food", "").lower() for w in ["coffee", "tea", "chai"]):
+            old_sugar = it.get("sugar", 7.0 * it.get("qty", 1.0))
+            it["sugar"] = 0.0
+            sugar_cals = round(old_sugar * 4.0, 1)
+            it["calories"] = max(0.0, round(it.get("calories", 90.0) - sugar_cals, 1))
+            it["serving_desc"] = f"{it.get('qty', 1.0)} serving (No sugar)"
+            updated = True
+
+    if updated:
+        data["totals"] = {
+            "calories": round(sum(i.get("calories", 0.0) for i in items), 1),
+            "protein": round(sum(i.get("protein", 0.0) for i in items), 1),
+            "fat": round(sum(i.get("fat", 0.0) for i in items), 1),
+            "sugar": round(sum(i.get("sugar", 0.0) for i in items), 1),
+        }
+        draft.set_data(data)
+        draft.touch()
+        db.session.commit()
+        draft_dict = draft.to_dict()
+        draft_dict["actions"] = ["confirm", "edit", "cancel"]
+        return {
+            "reply": "Updated! Removed sugar from your coffee. Review the updated draft below:",
+            "draft": draft_dict,
+        }
+    return None
+
+
 def process_conversational_message(user_id: int, message: str) -> Dict[str, Any]:
     """Process an incoming user chat message through conversational logging state machine."""
     clean_msg = message.strip()
@@ -572,15 +855,49 @@ def process_conversational_message(user_id: int, message: str) -> Dict[str, Any]
         db.session.commit()
         active_draft = None
 
-    # Step 1: Check explicit draft actions
-    lower_msg = clean_msg.lower()
-    if active_draft and any(k in lower_msg for k in ["confirm", "confirm and save", "save it", "looks good", "yes save", "save"]):
-        return confirm_draft(active_draft.draft_id, user_id)
+    lower_msg = clean_msg.lower().strip()
+    clean_alpha = re.sub(r"[^\w\s]", "", lower_msg).strip()
 
-    if active_draft and any(k in lower_msg for k in ["cancel", "discard", "never mind", "nevermind", "stop"]):
+    # Step 1: Check explicit confirmation actions FIRST
+    if is_confirmation_command(clean_alpha):
+        if not active_draft:
+            return {
+                "reply": "There is no pending meal or workout draft right now. What did you eat or train today?",
+                "draft": None
+            }
+        if active_draft.state == "awaiting_confirmation":
+            return confirm_draft(active_draft.draft_id, user_id)
+        elif active_draft.state == "collecting":
+            if active_draft.log_type == "food":
+                apply_standard_servings_to_draft(active_draft)
+            return confirm_draft(active_draft.draft_id, user_id)
+
+    # Step 2: Check explicit cancellation actions FIRST
+    if is_cancellation_command(clean_alpha):
+        if not active_draft:
+            return {
+                "reply": "There is no pending meal or workout draft right now. What did you eat or train today?",
+                "draft": None
+            }
         return cancel_draft(active_draft.draft_id, user_id)
 
-    # Step 2: Try AI interpretation first, then fallback to deterministic parser
+    # Step 3: Check standard serving instruction for active food draft (Rule E)
+    std_serving_phrases = [
+        "use standard serving", "use standard servings", "standard serving", "standard servings",
+        "use one standard serving", "the quantity i gave earlier was correct",
+        "quantity was correct", "default serving", "use defaults"
+    ]
+    if active_draft and active_draft.log_type == "food" and any(p in lower_msg for p in std_serving_phrases):
+        return apply_standard_servings_to_draft(active_draft)
+
+    # Step 4: Check coffee/tea sugar update (Rule E)
+    no_sugar_patterns = ["no sugar", "without sugar", "zero sugar", "0 sugar", "sugar free", "sugar-free", "had no sugar"]
+    if active_draft and active_draft.log_type == "food" and any(p in lower_msg for p in no_sugar_patterns):
+        sugar_res = handle_beverage_sugar_update(active_draft)
+        if sugar_res:
+            return sugar_res
+
+    # Step 5: Try AI interpretation first, then fallback to deterministic parser
     active_data = active_draft.get_data() if active_draft else None
     ai_parsed = call_groq_interpretation(clean_msg, active_data)
 
@@ -589,8 +906,15 @@ def process_conversational_message(user_id: int, message: str) -> Dict[str, Any]
         intent = ai_parsed.get("intent")
     else:
         # Check rule-based intent
-        food_kw = ["ate", "had", "eat", "dosa", "rice", "idli", "coffee", "tea", "roti", "chapati", "chicken", "salad", "breakfast", "lunch", "dinner", "snack"]
-        workout_kw = ["bench press", "squat", "deadlift", "push-ups", "pull-ups", "lat pulldown", "treadmill", "running", "sets", "reps", "workout", "trained", "gym"]
+        food_kw = [
+            "ate", "had", "eat", "dosa", "rice", "idli", "coffee", "tea", "roti",
+            "chapati", "chicken", "salad", "breakfast", "lunch", "dinner", "snack",
+            "eggs", "egg", "dal", "milk", "bread", "almonds", "protein", "samosa"
+        ]
+        workout_kw = [
+            "bench press", "squat", "deadlift", "push-ups", "pull-ups", "lat pulldown",
+            "treadmill", "running", "sets", "reps", "workout", "trained", "gym"
+        ]
 
         has_food = any(w in lower_msg for w in food_kw)
         has_workout = any(w in lower_msg for w in workout_kw)
@@ -611,11 +935,11 @@ def process_conversational_message(user_id: int, message: str) -> Dict[str, Any]
             if not is_question:
                 intent = f"{active_draft.log_type}_log"
 
-    # Step 3: Handle Food Intent
+    # Step 6: Handle Food Intent
     if intent == "food_log":
         return handle_food_intent(user_id, clean_msg, active_draft, ai_parsed)
 
-    # Step 4: Handle Workout Intent
+    # Step 7: Handle Workout Intent
     if intent == "workout_log":
         return handle_workout_intent(user_id, clean_msg, active_draft, ai_parsed)
 
@@ -636,6 +960,8 @@ def handle_food_intent(user_id: int, message: str, active_draft: Optional[Pendin
         missing = []
         for fi in ai_parsed.get("food_items", []):
             name = fi.get("name", "").strip()
+            if not is_valid_food_name(name):
+                continue
             qty = float(fi.get("quantity") or 1.0)
             has_qty = bool(fi.get("has_quantity", True))
             matched = match_food_item(name)
@@ -667,7 +993,7 @@ def handle_food_intent(user_id: int, message: str, active_draft: Optional[Pendin
                     "protein": round(pro, 1),
                     "fat": round(fat, 1),
                     "sugar": round(sug, 1),
-                    "provenance": "ai_estimated",
+                    "provenance": "ai_estimate",
                     "is_estimate": True,
                     "serving_desc": f"{qty} serving (Estimated)"
                 })
@@ -689,19 +1015,23 @@ def handle_food_intent(user_id: int, message: str, active_draft: Optional[Pendin
         existing_data = active_draft.get_data()
         existing_items = existing_data.get("items", [])
 
-        # Check if message is updating quantity (e.g. "Actually it was 3 dosas" or "1.5 cups rice")
-        if extracted.get("items"):
-            for new_item in extracted["items"]:
+        # Filter out any non-food items
+        valid_new_items = [it for it in extracted.get("items", []) if is_valid_food_name(it["food"])]
+
+        if valid_new_items:
+            for new_item in valid_new_items:
                 replaced = False
                 for ex_item in existing_items:
-                    if ex_item["food"].lower() in new_item["food"].lower() or new_item["food"].lower() in ex_item["food"].lower():
+                    ex_name = ex_item["food"].lower()
+                    new_name = new_item["food"].lower()
+                    if ex_name == new_name or ex_name in new_name or new_name in ex_name:
                         ex_item["qty"] = new_item["qty"]
                         ex_item["has_quantity"] = True
-                        factor = new_item["qty"] / max(ex_item.get("qty", 1.0), 0.1)
                         ex_item["calories"] = round(new_item["calories"], 1)
                         ex_item["protein"] = round(new_item["protein"], 1)
                         ex_item["fat"] = round(new_item["fat"], 1)
                         ex_item["sugar"] = round(new_item["sugar"], 1)
+                        ex_item["serving_desc"] = new_item.get("serving_desc", f"{new_item['qty']} serving")
                         replaced = True
                         break
                 if not replaced:
@@ -719,8 +1049,12 @@ def handle_food_intent(user_id: int, message: str, active_draft: Optional[Pendin
 
     missing_fields = extracted.get("missing_fields", [])
     has_missing_portions = any(not i.get("has_quantity", True) for i in extracted["items"])
-    if has_missing_portions and not missing_fields:
-        missing_fields = ["portion sizes"]
+    if has_missing_portions:
+        if not missing_fields:
+            missing_fields = ["portion sizes"]
+    else:
+        missing_fields = []
+    extracted["missing_fields"] = missing_fields
 
     # Determine state
     if not extracted["items"]:
@@ -731,11 +1065,14 @@ def handle_food_intent(user_id: int, message: str, active_draft: Optional[Pendin
 
     if missing_fields:
         state = "collecting"
-        prompt = (
-            f"Roughly how much {', '.join(i['food'] for i in extracted['items'])} did you have? "
-            "You can describe the portions in servings, cups, pieces, bowls, or grams."
+        item_names = [i["food"] for i in extracted["items"] if not i.get("has_quantity", True)]
+        if not item_names:
+            item_names = [i["food"] for i in extracted["items"]]
+        reply = (
+            f"Roughly how much {', '.join(item_names)} did you have? "
+            "(e.g., 1 plate of rice, 150g chicken, or reply 'use standard serving')"
         )
-        reply = prompt
+        prompt = reply
     else:
         state = "awaiting_confirmation"
         meal_name = extracted.get("meal", "Meal")
