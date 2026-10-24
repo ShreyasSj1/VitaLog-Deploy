@@ -44,30 +44,30 @@
           {% endif %}
         </div>
 
-        <div class="energy-overview-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-top:16px;">
-          <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
-            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Food Consumed</span>
-            <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">
-              <span class="count-up">{{ total_calories | round }}</span> <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">/ {{ goals.calories }} kcal</span>
+        <div class="energy-overview-grid">
+          <div class="energy-stat-box">
+            <span class="stat-label">Food Consumed</span>
+            <div class="stat-primary">
+              <span class="count-up">{{ total_calories | round }}</span> <span class="stat-sub">/ {{ goals.calories }} kcal</span>
             </div>
-            <small class="text-muted">Target Adherence: {{ ((total_calories * 100) / (goals.calories or 1)) | round | int }}%</small>
+            <small class="stat-meta">Target Adherence: {{ ((total_calories * 100) / (goals.calories or 1)) | round | int }}%</small>
           </div>
 
-          <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
-            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Active Exercise</span>
-            <div style="font-size:1.6rem; font-weight:700; margin-top:4px; color:#ef4444;">
-              🔥 <span class="count-up">{{ gym_calories | round }}</span> <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">kcal (est.)</span>
+          <div class="energy-stat-box">
+            <span class="stat-label">Active Exercise</span>
+            <div class="stat-primary" style="color: #ef4444;">
+              🔥 <span class="count-up">{{ gym_calories | round }}</span> <span class="stat-sub">kcal (est.)</span>
             </div>
-            <small class="text-muted">{{ gym_duration | round }} mins workout logged</small>
+            <small class="stat-meta">{{ gym_duration | round }} mins workout logged</small>
           </div>
 
-          <div class="energy-stat-box" style="padding:14px; background:rgba(255,255,255,0.03); border:1px solid rgba(148,163,184,0.12); border-radius:12px;">
-            <span class="text-muted" style="font-size:0.8rem; text-transform:uppercase; letter-spacing:0.5px;">Estimated Energy Balance</span>
+          <div class="energy-stat-box">
+            <span class="stat-label">Estimated Energy Balance</span>
             {% if estimated_tdee %}
-              <div style="font-size:1.6rem; font-weight:700; margin-top:4px;">
-                {% if energy_balance > 0 %}+{% endif %}{{ energy_balance | round }} <span style="font-size:0.9rem; font-weight:400; color:var(--text-muted)">kcal</span>
+              <div class="stat-primary">
+                {% if energy_balance > 0 %}+{% endif %}{{ energy_balance | round }} <span class="stat-sub">kcal</span>
               </div>
-              <small class="text-muted">
+              <small class="stat-meta">
                 {% if energy_balance < 0 %}
                   Estimated Deficit vs TDEE (~{{ estimated_tdee | round }} kcal)
                 {% else %}
@@ -75,10 +75,10 @@
                 {% endif %}
               </small>
             {% else %}
-              <div style="font-size:1.1rem; font-weight:500; margin-top:6px; color:var(--text-muted);">
+              <div style="font-size: 1.1rem; font-weight: 500; margin-top: 6px; color: var(--text-muted);">
                 TDEE not configured
               </div>
-              <small class="text-muted"><a href="{{ url_for('auth.profile') }}" style="color:var(--primary); text-decoration:underline;">Set profile details</a> for energy balance</small>
+              <small class="stat-meta"><a href="{{ url_for('auth.profile') }}" style="color: var(--accent-primary); text-decoration: underline;">Set profile details</a> for energy balance</small>
             {% endif %}
           </div>
         </div>

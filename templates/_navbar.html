@@ -11,13 +11,57 @@
         </a>
     </div>
     <div class="mobile-topbar-actions">
-        <button id="themeToggleMobile" class="theme-btn" aria-label="Toggle dark/light mode">🌙</button>
+        <button id="themeToggleMobile" class="theme-btn mobile-theme-btn" type="button" aria-label="Toggle dark/light mode">
+            <span class="theme-icon">🌙</span>
+        </button>
         {% if current_user.is_authenticated %}
-        <a href="{{ url_for('auth.profile') }}" class="mobile-user-link" aria-label="View Profile">
-            <div class="nav-avatar nav-avatar-fallback">{{ current_user.name[:1] | upper }}</div>
-        </a>
+        <div class="mobile-profile-wrapper" id="mobileProfileWrapper">
+            <button type="button" class="mobile-avatar-btn" id="mobileAvatarBtn" aria-label="User menu" aria-expanded="false" aria-haspopup="true">
+                <div class="nav-avatar nav-avatar-fallback">{{ current_user.name[:1] | upper }}</div>
+            </button>
+            <div class="mobile-profile-dropdown" id="mobileProfileDropdown" role="menu">
+                <div class="dropdown-user-header">
+                    <span class="dropdown-user-name">{{ current_user.name }}</span>
+                    <span class="dropdown-user-role">{{ current_user.role|title }}</span>
+                </div>
+                <div class="dropdown-divider"></div>
+                <a href="{{ url_for('auth.profile') }}" class="dropdown-item" role="menuitem">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span>Profile & Goals</span>
+                </a>
+                <a href="{{ url_for('dashboard.wellbeing') }}" class="dropdown-item" role="menuitem">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+                    </svg>
+                    <span>Well-being</span>
+                </a>
+                {% if current_user.role == 'admin' %}
+                <a href="{{ url_for('dashboard.admin_users') }}" class="dropdown-item" role="menuitem">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>User Admin</span>
+                </a>
+                {% endif %}
+                <div class="dropdown-divider"></div>
+                <form action="{{ url_for('auth.logout') }}" method="POST" class="dropdown-logout-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="dropdown-item dropdown-logout-btn" role="menuitem">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                        <span>Sign Out</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+        {% else %}
+        <div class="mobile-auth-actions">
+            <a href="{{ url_for('auth.login') }}" class="secondary-btn" style="padding: 6px 12px; font-size: 0.8rem;">Sign In</a>
+        </div>
         {% endif %}
-        <button class="menu-toggle" id="menuToggle" aria-label="Open navigation menu" aria-expanded="false">☰</button>
     </div>
 </header>
 
@@ -165,9 +209,9 @@ if (!window.__sharedNavControls) {
 
     const body = document.body;
     const toggleBtns = document.querySelectorAll("#themeToggle, #themeToggleMobile, .theme-btn");
-    const menuToggle = document.getElementById("menuToggle");
-    const navMenu = document.getElementById("navMenu");
-    const desktopNavQuery = window.matchMedia("(min-width: 1024px)");
+    const mobileAvatarBtn = document.getElementById("mobileAvatarBtn");
+    const mobileProfileDropdown = document.getElementById("mobileProfileDropdown");
+    const mobileProfileWrapper = document.getElementById("mobileProfileWrapper");
 
     function syncThemeButton() {
         const isDark = body.classList.contains("dark");
@@ -177,26 +221,19 @@ if (!window.__sharedNavControls) {
             if (icon && text) {
                 icon.innerText = isDark ? "☀️" : "🌙";
                 text.innerText = isDark ? "Light" : "Dark";
+            } else if (icon) {
+                icon.innerText = isDark ? "☀️" : "🌙";
             } else {
-                btn.innerText = isDark ? "☀️ Light" : "🌙 Dark";
+                btn.innerText = isDark ? "☀️" : "🌙";
             }
         });
         window.dispatchEvent(new CustomEvent('themeChanged', { detail: { isDark: isDark } }));
-    }
-
-    function syncMenuButton() {
-        if (!menuToggle || !navMenu) return;
-        const isOpen = navMenu.classList.contains("active");
-        menuToggle.innerText = isOpen ? "✕" : "☰";
-        menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
-        menuToggle.setAttribute("aria-label", isOpen ? "Close navigation menu" : "Open navigation menu");
     }
 
     if (localStorage.getItem("theme") === "dark") {
         body.classList.add("dark");
     }
     syncThemeButton();
-    syncMenuButton();
 
     toggleBtns.forEach(btn => {
         btn.addEventListener("click", () => {
@@ -206,24 +243,27 @@ if (!window.__sharedNavControls) {
         });
     });
 
-    menuToggle?.addEventListener("click", () => {
-        navMenu?.classList.toggle("active");
-        syncMenuButton();
+    function toggleMobileProfile(open) {
+        if (!mobileProfileDropdown || !mobileAvatarBtn) return;
+        const willOpen = (typeof open === "boolean") ? open : !mobileProfileDropdown.classList.contains("open");
+        mobileProfileDropdown.classList.toggle("open", willOpen);
+        mobileAvatarBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+    }
+
+    mobileAvatarBtn?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleMobileProfile();
     });
 
     document.addEventListener("click", (event) => {
-        if (!navMenu || !menuToggle) return;
-        if (window.innerWidth >= 1024) return;
-        if (!navMenu.contains(event.target) && !menuToggle.contains(event.target)) {
-            navMenu.classList.remove("active");
-            syncMenuButton();
+        if (mobileProfileWrapper && !mobileProfileWrapper.contains(event.target)) {
+            toggleMobileProfile(false);
         }
     });
 
-    desktopNavQuery.addEventListener("change", (event) => {
-        if (event.matches && navMenu) {
-            navMenu.classList.remove("active");
-            syncMenuButton();
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && mobileProfileDropdown?.classList.contains("open")) {
+            toggleMobileProfile(false);
         }
     });
 }

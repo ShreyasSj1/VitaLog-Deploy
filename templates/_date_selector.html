@@ -13,31 +13,41 @@
         <a href="{{ request.path }}" class="today-btn">Today</a>
     </form>
 
-    <!-- Week Calendar Swiper (Mobile Optimized) -->
+    <!-- Week Calendar Swiper (Mobile Optimized: single horizontal row) -->
     <div class="week-swiper-container">
-        <div class="week-swiper">
-            {% for day_val in week[-5:] %}
+        <div class="week-swiper" role="group" aria-label="Current week selector">
+            {% for day_val in week %}
                 {% set is_selected = (day_val == selected_date) %}
-                <div class="swiper-day-card {{ 'active' if is_selected else '' }}" onclick="selectSwiperDate('{{ day_val }}')">
+                <button 
+                    type="button" 
+                    class="swiper-day-card {{ 'active' if is_selected else '' }}" 
+                    onclick="selectSwiperDate('{{ day_val }}')"
+                    aria-label="Select {{ day_val }}"
+                    aria-pressed="{{ 'true' if is_selected else 'false' }}"
+                >
                     <span class="day-name" data-date="{{ day_val }}"></span>
                     <span class="day-number">{{ day_val.split('-')[2] }}</span>
-                </div>
+                </button>
             {% endfor %}
         </div>
         
-        <div class="swiper-controls">
-            <!-- Hidden native date input for picking arbitrary dates -->
-            <input 
-                type="date" 
-                id="hiddenDateInput" 
-                value="{{ selected_date }}" 
-                max="{{ max_date }}" 
-                style="position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none;"
-                onchange="selectSwiperDate(this.value)"
-            >
-            <button type="button" class="swiper-calendar-btn" onclick="openFullCalendar()">📅</button>
-            <a href="{{ request.path }}" class="swiper-today-btn">Today</a>
-        </div>
+        <!-- Hidden native date input for picking arbitrary dates -->
+        <input 
+            type="date" 
+            id="hiddenDateInput" 
+            value="{{ selected_date }}" 
+            max="{{ max_date }}" 
+            style="position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none;"
+            onchange="selectSwiperDate(this.value)"
+        >
+        <button type="button" class="swiper-calendar-btn" onclick="openFullCalendar()" aria-label="Open full calendar picker" title="Choose date">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+        </button>
     </div>
 </div>
 
