@@ -40,6 +40,26 @@ To establish an administrator account:
 3. Register or sign in via that email. The user record is created with `role="admin"`, granting access to the `/admin/users` management panel.
 4. Any user whose email is not in `ADMIN_EMAILS` is strictly granted `role="user"`.
 
+## Keep-alive on Render free tier
+
+Render spins down free web services after 15 minutes of inactivity, causing cold starts on subsequent requests. VitalLog includes a lightweight background heartbeat that periodically pings its public `/health` endpoint to stay awake.
+
+### How it works
+- **Zero configuration on Render**: Render automatically provides `RENDER_EXTERNAL_URL`, so the heartbeat activates without manual setup.
+- **Inert locally**: If neither `RENDER_EXTERNAL_URL` nor `KEEP_ALIVE_URL` is set, the heartbeat remains completely inactive.
+- **Lightweight**: Only pings the in-memory `GET /health` liveness probe. It never touches the database.
+
+### Environment variables
+
+| Variable | Default | Description |
+| :--- | :--- | :--- |
+| `KEEP_ALIVE_ENABLED` | `true` | Set to `false` to disable self-pinging completely. |
+| `KEEP_ALIVE_INTERVAL_MINUTES` | `10` | Ping interval in minutes (must be greater than 0 and less than 14). |
+| `KEEP_ALIVE_URL` | None | Optional manual URL override (e.g. custom domain). |
+
+> [!NOTE]
+> This keeps the service awake while it's running. It cannot revive a crashed service, and a fresh deploy still has a normal cold start. A single free service stays within Render's 750 free instance hours/month.
+
 ## Health & Readiness Probes
 
 - **Liveness:** `GET /health` (Returns 200 `{"ok": true, "status": "healthy"}`)
