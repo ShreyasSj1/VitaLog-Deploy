@@ -19,6 +19,7 @@ from migrations import run_migrations
 from csrf import generate_csrf_token, validate_csrf
 from routes.auth import auth_bp
 from routes.dashboard import dashboard_bp
+from keep_alive import start_keep_alive
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -188,6 +189,9 @@ with app.app_context():
         # In production with an external database URL, raise to prevent silent corrupt deploys
         if not app.debug and os.environ.get("DATABASE_URL") and not os.environ.get("DATABASE_URL", "").startswith("sqlite:///:memory:"):
             raise
+
+# ================= KEEP ALIVE =================
+start_keep_alive(app)
 
 # ================= RUN =================
 if __name__ == "__main__":
