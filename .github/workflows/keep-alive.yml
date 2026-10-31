@@ -1,0 +1,25 @@
+name: Keep Alive Heartbeat
+
+on:
+  schedule:
+    # Run every 12 minutes to guarantee the service never idles out on Render free tier
+    - cron: "*/12 * * * *"
+  workflow_dispatch:
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Render Service
+        env:
+          TARGET_URL: ${{ secrets.RENDER_APP_URL || vars.RENDER_APP_URL || 'https://vitallog-deploy.onrender.com' }}
+        run: |
+          URL="${TARGET_URL%/}/health"
+          echo "Pinging ${URL}..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) GitHubActions-KeepAlive" "$URL" || echo "failed")
+          echo "Status: ${HTTP_STATUS}"
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "Heartbeat successful. Service is awake."
+          else
+            echo "Notice: Endpoint returned ${HTTP_STATUS} (may have triggered wake-up cold start)."
+          fi
