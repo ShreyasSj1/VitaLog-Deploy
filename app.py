@@ -38,6 +38,7 @@ login_manager.init_app(app)
 @app.before_request
 def check_csrf():
     validate_csrf()
+    start_keep_alive(app)
 
 @app.after_request
 def apply_security_headers(response):
