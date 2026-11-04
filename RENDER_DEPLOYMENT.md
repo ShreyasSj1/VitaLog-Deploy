@@ -42,23 +42,30 @@ To establish an administrator account:
 
 ## Keep-alive on Render free tier
 
-Render spins down free web services after 15 minutes of inactivity, causing cold starts on subsequent requests. VitalLog includes a lightweight background heartbeat that periodically pings its public `/health` endpoint to stay awake.
+Render spins down free web services after 15 minutes of inactivity, causing cold starts on subsequent requests. VitalLog includes a multi-layer keep-alive strategy so the service remains responsive:
 
-### How it works
-- **Zero configuration on Render**: Render automatically provides `RENDER_EXTERNAL_URL`, so the heartbeat activates without manual setup.
-- **Inert locally**: If neither `RENDER_EXTERNAL_URL` nor `KEEP_ALIVE_URL` is set, the heartbeat remains completely inactive.
-- **Lightweight**: Only pings the in-memory `GET /health` liveness probe. It never touches the database.
+### 1. Internal Background Heartbeat (keep_alive.py & gunicorn.conf.py)
+- **Zero configuration on Render**: Automatically resolves RENDER_EXTERNAL_URL, RENDER_EXTERNAL_HOSTNAME, or RENDER_SERVICE_NAME.
+- **Immediate startup ping**: Pings 15 seconds after booting, then continues on a 7-minute recurring interval with 30-second transient retry.
+- **Worker-safe**: Initialized in gunicorn.conf.py (post_worker_init) after worker processes fork, eliminating pre-fork thread drops.
+- **Lightweight**: Hits the in-memory GET /health probe without touching the database.
+- **Inert locally**: Does not spawn threads or pings when running without Render environment variables.
+
+### 2. External GitHub Actions Heartbeat (.github/workflows/keep-alive.yml)
+- Runs every 12 minutes on GitHub's cloud.
+- Sends an external HTTP ping from outside Render's infrastructure, guaranteeing that even if Render restarts or suspends the container, the service is immediately woken up.
+- By default targets https://vitallog-deploy.onrender.com/health. If your Render URL is different, set a repository secret or variable named RENDER_APP_URL.
 
 ### Environment variables
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `KEEP_ALIVE_ENABLED` | `true` | Set to `false` to disable self-pinging completely. |
-| `KEEP_ALIVE_INTERVAL_MINUTES` | `10` | Ping interval in minutes (must be greater than 0 and less than 14). |
-| `KEEP_ALIVE_URL` | None | Optional manual URL override (e.g. custom domain). |
+| KEEP_ALIVE_ENABLED | true | Set to false to disable the internal heartbeat. |
+| KEEP_ALIVE_INTERVAL_MINUTES | 7 | Ping interval in minutes (must be > 0 and < 14). |
+| KEEP_ALIVE_URL | None | Optional manual URL override (e.g. custom domain). |
 
 > [!NOTE]
-> This keeps the service awake while it's running. It cannot revive a crashed service, and a fresh deploy still has a normal cold start. A single free service stays within Render's 750 free instance hours/month.
+> Combining the internal 7-minute heartbeat with the 12-minute external GitHub Actions ping ensures the service stays awake 24/7. A single free service uses approximately 720 to 744 hours per month, remaining within Render's 750 free instance hours allowance.
 
 ## Health & Readiness Probes
 
