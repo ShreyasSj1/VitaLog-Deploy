@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import date, datetime, timedelta
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, abort, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, abort, flash, Response
 from flask_login import login_required, current_user
 import groq
 from sqlalchemy import func
@@ -10,7 +10,7 @@ from extensions import db
 from models import (
     FoodLog, GymLog, SleepLog, WellbeingLog, User, FoodItem, Exercise, ChatMessage,
     WeightLog, FoodFavorite, SavedMeal, SavedMealItem, WorkoutSet, UserPreference,
-    PendingLogDraft, record_weight_log, get_or_create_user_preferences
+    PendingLogDraft, record_weight_log, get_or_create_user_preferences, now_utc, utc_iso
 )
 from conversational_logging import (
     process_conversational_message, confirm_draft, cancel_draft, edit_draft
@@ -779,11 +779,82 @@ def export_csv():
     for r in wb_rows:
         writer.writerow([r.date, r.activity, r.minutes])
 
+    # -- Weight log --------------------------------------------
+    writer.writerow([])
+    writer.writerow(["=== Weight Log ==="])
+    writer.writerow(["Date", "Weight (kg)", "Notes"])
+    weight_rows = (
+        WeightLog.query
+        .filter(WeightLog.user_id == current_user.id,
+                WeightLog.date >= date_from_s,
+                WeightLog.date <= date_to_s)
+        .order_by(WeightLog.date, WeightLog.id)
+        .all()
+    )
+    for r in weight_rows:
+        writer.writerow([r.date, round(r.weight or 0, 2), r.notes or ""])
+
+    # -- Workout Sets ------------------------------------------
+    writer.writerow([])
+    writer.writerow(["=== Workout Sets ==="])
+    writer.writerow(["Date", "Exercise", "Set Number", "Reps", "Weight (kg)", "RPE", "Completed"])
+    set_rows = (
+        db.session.query(GymLog.date, GymLog.exercise, WorkoutSet)
+        .join(WorkoutSet, WorkoutSet.gym_log_id == GymLog.id)
+        .filter(GymLog.user_id == current_user.id,
+                GymLog.date >= date_from_s,
+                GymLog.date <= date_to_s)
+        .order_by(GymLog.date, GymLog.id, WorkoutSet.set_number)
+        .all()
+    )
+    for log_date, exercise_name, s in set_rows:
+        writer.writerow([
+            log_date,
+            exercise_name,
+            s.set_number,
+            s.reps,
+            round(s.weight or 0, 2),
+            s.rpe if s.rpe is not None else "",
+            s.completed,
+        ])
+
     output.seek(0)
     filename = f"vitallog_{current_user.email}_{date_from_s}_to_{date_to_s}.csv"
     return Response(
         output.getvalue(),
         mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
+@dashboard_bp.route("/export/json")
+@login_required
+def export_json():
+    """Download full personal data and logs for the current user as a structured JSON file."""
+    pref = UserPreference.query.filter_by(user_id=current_user.id).first()
+
+    saved_meals_data = []
+    for sm in SavedMeal.query.filter_by(user_id=current_user.id).order_by(SavedMeal.id).all():
+        meal_dict = sm.to_dict()
+        meal_dict["items"] = [item.to_dict() for item in sm.items]
+        saved_meals_data.append(meal_dict)
+
+    data = {
+        "exported_at": utc_iso(now_utc()),
+        "user": current_user.to_dict(),
+        "preferences": pref.to_dict() if pref else None,
+        "food_logs": [f.to_dict() for f in FoodLog.query.filter_by(user_id=current_user.id).order_by(FoodLog.date, FoodLog.id).all()],
+        "sleep_logs": [s.to_dict() for s in SleepLog.query.filter_by(user_id=current_user.id).order_by(SleepLog.date, SleepLog.id).all()],
+        "gym_logs": [g.to_dict() for g in GymLog.query.filter_by(user_id=current_user.id).order_by(GymLog.date, GymLog.id).all()],
+        "wellbeing_logs": [w.to_dict() for w in WellbeingLog.query.filter_by(user_id=current_user.id).order_by(WellbeingLog.date, WellbeingLog.id).all()],
+        "weight_logs": [wt.to_dict() for wt in WeightLog.query.filter_by(user_id=current_user.id).order_by(WeightLog.date, WeightLog.id).all()],
+        "saved_meals": saved_meals_data,
+    }
+
+    filename = f"vitallog_{current_user.email}_{get_today().isoformat()}.json"
+    return Response(
+        json.dumps(data, indent=2, default=str),
+        mimetype="application/json",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
 

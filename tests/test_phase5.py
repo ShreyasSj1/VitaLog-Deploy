@@ -168,3 +168,62 @@ class TestCSVExport:
         login(client, email="export_swap@example.com")
         resp = client.get("/export/csv?from=2024-12-31&to=2024-01-01")
         assert resp.status_code == 200
+
+    def test_export_contains_weight_and_workout_sets_sections(self, client, db):
+        make_user(db, email="export_all_sec@example.com")
+        login(client, email="export_all_sec@example.com")
+        resp = client.get("/export/csv")
+        body = resp.data.decode("utf-8")
+        assert "Weight Log" in body
+        assert "Workout Sets" in body
+
+
+# ---------------------------------------------------------------------------
+# JSON export
+# ---------------------------------------------------------------------------
+
+class TestJSONExport:
+    def test_export_json_requires_login(self, client):
+        resp = client.get("/export/json", follow_redirects=False)
+        assert resp.status_code == 302
+
+    def test_export_json_returns_valid_json(self, client, db):
+        import json
+        make_user(db, email="export_json@example.com")
+        login(client, email="export_json@example.com")
+        resp = client.get("/export/json")
+        assert resp.status_code == 200
+        assert "application/json" in resp.content_type
+        assert "attachment" in resp.headers.get("Content-Disposition", "")
+        data = json.loads(resp.data.decode("utf-8"))
+        assert "user" in data
+        assert "food_logs" in data
+        assert "sleep_logs" in data
+        assert "gym_logs" in data
+        assert "wellbeing_logs" in data
+        assert "weight_logs" in data
+        assert "saved_meals" in data
+        assert data["user"]["email"] == "export_json@example.com"
+
+    def test_export_json_includes_logged_records(self, client, db):
+        import json
+        from models import WeightLog
+        user = make_user(db, email="export_json_data@example.com")
+        login(client, email="export_json_data@example.com")
+
+        # Log food
+        client.post(
+            f"/food?date={TODAY}",
+            data={"meal": "Breakfast", "food": "Idli", "qty": "2", "date": TODAY},
+        )
+        # Log weight
+        w_log = WeightLog(user_id=user.id, date=TODAY, weight=75.5, notes="Morning check")
+        db.session.add(w_log)
+        db.session.commit()
+
+        resp = client.get("/export/json")
+        assert resp.status_code == 200
+        data = json.loads(resp.data.decode("utf-8"))
+        assert any(f["food"] == "Idli" for f in data["food_logs"])
+        assert any(w["weight"] == 75.5 for w in data["weight_logs"])
+
