@@ -143,3 +143,125 @@ class TestWorkoutSetsAndPRs:
         assert log.sets_detail[0].set_number == 1
         assert log.sets_detail[0].weight == pytest.approx(14.0)
         assert log.sets_detail[0].reps == 12
+
+    def test_edit_gym_requires_login(self, client):
+        resp = client.get("/gym/edit/1")
+        assert resp.status_code == 302
+
+    def test_edit_gym_page_loads(self, client, db):
+        user = make_user(db, email="gym_edit_view@example.com")
+        login(client, email="gym_edit_view@example.com")
+        log = GymLog(
+            user_id=user.id,
+            date=TODAY,
+            muscle="Chest",
+            exercise="Bench Press (Barbell)",
+            sets=3,
+            reps=10,
+            weight=60.0,
+            intensity="Medium",
+            calories=120.0,
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        resp = client.get(f"/gym/edit/{log.id}")
+        assert resp.status_code == 200
+        assert b"Edit Workout Entry" in resp.data
+        assert b"Bench Press (Barbell)" in resp.data
+
+    def test_edit_gym_strength_updates_and_syncs_sets(self, client, db):
+        user = make_user(db, email="gym_edit_str@example.com")
+        login(client, email="gym_edit_str@example.com")
+        log = GymLog(
+            user_id=user.id,
+            date=TODAY,
+            muscle="Chest",
+            exercise="Bench Press (Barbell)",
+            sets=3,
+            reps=10,
+            weight=60.0,
+            intensity="Medium",
+            calories=120.0,
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        resp = client.post(
+            f"/gym/edit/{log.id}",
+            data={
+                "sets": "4",
+                "reps": "8",
+                "weight": "75",
+                "intensity": "Hard",
+                "calories": "160.0",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        updated = db.session.get(GymLog, log.id)
+        assert updated.sets == 4
+        assert updated.reps == 8
+        assert updated.weight == pytest.approx(75.0)
+        assert updated.intensity == "Hard"
+        assert updated.calories == pytest.approx(160.0)
+
+        sets = WorkoutSet.query.filter_by(gym_log_id=log.id).all()
+        assert len(sets) == 4
+        assert sets[0].weight == pytest.approx(75.0)
+        assert sets[0].reps == 8
+
+    def test_edit_gym_cardio_updates(self, client, db):
+        user = make_user(db, email="gym_edit_cardio@example.com")
+        login(client, email="gym_edit_cardio@example.com")
+        log = GymLog(
+            user_id=user.id,
+            date=TODAY,
+            muscle="Cardio",
+            exercise="Treadmill (Running)",
+            duration=20.0,
+            speed=8.0,
+            intensity="Medium",
+            calories=150.0,
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        resp = client.post(
+            f"/gym/edit/{log.id}",
+            data={
+                "duration": "30.0",
+                "speed": "10.0",
+                "incline": "0",
+                "intensity": "Hard",
+                "calories": "250.0",
+            },
+            follow_redirects=True,
+        )
+        assert resp.status_code == 200
+        updated = db.session.get(GymLog, log.id)
+        assert updated.duration == pytest.approx(30.0)
+        assert updated.speed == pytest.approx(10.0)
+        assert updated.calories == pytest.approx(250.0)
+
+    def test_edit_gym_cross_user_forbidden(self, client, db):
+        user1 = make_user(db, email="gym_u1@example.com")
+        user2 = make_user(db, email="gym_u2@example.com")
+        log = GymLog(
+            user_id=user1.id,
+            date=TODAY,
+            muscle="Back",
+            exercise="Deadlift",
+            sets=3,
+            reps=5,
+            weight=100.0,
+            intensity="Hard",
+            calories=100.0,
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        login(client, email="gym_u2@example.com")
+        resp = client.get(f"/gym/edit/{log.id}")
+        assert resp.status_code == 404
+
