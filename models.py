@@ -57,6 +57,19 @@ class User(UserMixin, db.Model):
             "sugar":    self.goal_sugar    if self.goal_sugar    is not None else _DEFAULTS["sugar"],
         }
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name or "",
+            "age": self.age,
+            "height": self.height,
+            "weight": self.weight,
+            "role": self.role,
+            "goals": self.goals,
+            "created_at": self.created_at,
+        }
+
 
 
 class PasswordResetToken(db.Model):
@@ -101,6 +114,20 @@ class FoodLog(db.Model):
         db.Index('idx_food_log_user_date', 'user_id', 'date'),
     )
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "meal": self.meal,
+            "food": self.food,
+            "qty": self.qty,
+            "calories": self.calories,
+            "protein": self.protein,
+            "fat": self.fat,
+            "sugar": self.sugar,
+            "provenance": self.provenance,
+        }
+
 
 class SleepLog(db.Model):
     __tablename__ = "sleep_log"
@@ -116,6 +143,15 @@ class SleepLog(db.Model):
         db.Index('idx_sleep_log_user_date', 'user_id', 'date'),
     )
 
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "hours": self.hours,
+            "quality": self.quality,
+            "notes": self.notes or "",
+        }
+
 
 class WellbeingLog(db.Model):
     __tablename__ = "wellbeing_log"
@@ -128,6 +164,14 @@ class WellbeingLog(db.Model):
     __table_args__ = (
         db.Index('idx_wellbeing_log_user_date', 'user_id', 'date'),
     )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "activity": self.activity,
+            "minutes": self.minutes,
+        }
 
 
 class GymLog(db.Model):
@@ -151,6 +195,23 @@ class GymLog(db.Model):
     __table_args__ = (
         db.Index('idx_gym_log_user_date', 'user_id', 'date'),
     )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "date": self.date,
+            "muscle": self.muscle,
+            "exercise": self.exercise,
+            "sets": self.sets,
+            "reps": self.reps,
+            "weight": self.weight,
+            "speed": self.speed,
+            "incline": self.incline,
+            "intensity": self.intensity,
+            "duration": self.duration,
+            "calories": self.calories,
+            "sets_detail": [s.to_dict() for s in self.sets_detail] if self.sets_detail else [],
+        }
 
 
 class WeightLog(db.Model):
