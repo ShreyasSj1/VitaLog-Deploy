@@ -1,0 +1,156 @@
+{% set seo_title = "Edit Workout Entry | VitalLog" %}
+{% set noindex = True %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% include "_seo.html" %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="/manifest.json">
+    <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
+</head>
+<body>
+
+{% include "_navbar.html" %}
+
+<div class="page-container">
+    {% include "_flash_messages.html" %}
+
+    <div class="card">
+        <h2>Edit Workout Entry</h2>
+
+        <form method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div class="form-row">
+                <label>Muscle / Category</label>
+                <input type="text" value="{{ log.muscle }}" disabled>
+            </div>
+
+            <div class="form-row">
+                <label>Exercise</label>
+                <input type="text" value="{{ log.exercise }}" disabled>
+            </div>
+
+            {% if is_cardio %}
+            <div class="form-row">
+                <label for="durationInput">Duration (minutes)</label>
+                <input
+                    type="number"
+                    step="0.5"
+                    name="duration"
+                    id="durationInput"
+                    value="{{ log.duration }}"
+                    min="1"
+                    max="1440"
+                    required
+                >
+            </div>
+
+            <div class="form-row">
+                <label for="speedInput">Speed (km/h)</label>
+                <input
+                    type="number"
+                    step="0.1"
+                    name="speed"
+                    id="speedInput"
+                    value="{{ log.speed }}"
+                    min="0"
+                    max="100"
+                >
+            </div>
+
+            {% if log.exercise == "Inclined Walking" %}
+            <div class="form-row">
+                <label for="inclineInput">Incline (%)</label>
+                <input
+                    type="number"
+                    step="0.5"
+                    name="incline"
+                    id="inclineInput"
+                    value="{{ log.incline }}"
+                    min="0"
+                    max="50"
+                >
+            </div>
+            {% endif %}
+
+            {% else %}
+            <div class="form-row">
+                <label for="setsInput">Sets</label>
+                <input
+                    type="number"
+                    name="sets"
+                    id="setsInput"
+                    value="{{ log.sets }}"
+                    min="1"
+                    max="100"
+                    required
+                >
+            </div>
+
+            <div class="form-row">
+                <label for="repsInput">Reps per set</label>
+                <input
+                    type="number"
+                    name="reps"
+                    id="repsInput"
+                    value="{{ log.reps }}"
+                    min="1"
+                    max="500"
+                    required
+                >
+            </div>
+
+            <div class="form-row">
+                <label for="weightInput">Weight (kg)</label>
+                <input
+                    type="number"
+                    step="0.5"
+                    name="weight"
+                    id="weightInput"
+                    value="{{ log.weight }}"
+                    min="0"
+                    max="1000"
+                >
+            </div>
+            {% endif %}
+
+            <div class="form-row">
+                <label for="intensityInput">Intensity</label>
+                <select name="intensity" id="intensityInput">
+                    <option value="Easy" {% if log.intensity == 'Easy' %}selected{% endif %}>Easy</option>
+                    <option value="Medium" {% if log.intensity == 'Medium' or not log.intensity %}selected{% endif %}>Medium</option>
+                    <option value="Hard" {% if log.intensity == 'Hard' %}selected{% endif %}>Hard</option>
+                    <option value="Extreme" {% if log.intensity == 'Extreme' %}selected{% endif %}>Extreme</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <label for="caloriesInput">Estimated Calories (kcal)</label>
+                <input
+                    type="number"
+                    step="0.1"
+                    name="calories"
+                    id="caloriesInput"
+                    value="{{ log.calories }}"
+                    min="0"
+                    max="10000"
+                    required
+                >
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="primary-btn">
+                    💾 Save Changes
+                </button>
+
+                <a href="{{ url_for('dashboard.gym', date=log.date) }}" class="secondary-btn">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
+</body>
+</html>

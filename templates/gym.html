@@ -288,6 +288,7 @@
                     {% endif %}
                     <td>{{ log.calories | round }} kcal</td>
                     <td class="action-cell">
+                        <a href="{{ url_for('dashboard.edit_gym', item_id=log.id) }}" class="action-btn edit-btn" title="Edit Workout">✏️</a>
                         <form method="post"
                               action="{{ url_for('dashboard.delete_gym', item_id=log.id) }}"
                               class="inline-form"

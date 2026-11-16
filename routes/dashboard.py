@@ -633,6 +633,97 @@ def delete_gym(item_id):
     return redirect(url_for("dashboard.gym", date=selected_date))
 
 
+@dashboard_bp.route("/gym/edit/<int:item_id>", methods=["GET", "POST"])
+@login_required
+def edit_gym(item_id):
+    gym_row = GymLog.query.filter_by(id=item_id, user_id=current_user.id).first()
+    if not gym_row:
+        abort(404)
+
+    is_cardio = is_cardio_exercise(gym_row.exercise)
+
+    if request.method == "POST":
+        intensity = request.form.get("intensity", gym_row.intensity or "Medium")
+        if intensity not in INTENSITY_MAP:
+            intensity = "Medium"
+
+        try:
+            if is_cardio:
+                duration = validate_positive_float(request.form.get("duration"), "Cardio duration", min_val=1.0, max_val=1440.0)
+                speed = validate_non_negative_float(request.form.get("speed") or 0.0, "Speed", max_val=100.0)
+                incline = validate_non_negative_float(request.form.get("incline") or 0.0, "Incline", max_val=50.0)
+
+                custom_cal = request.form.get("calories")
+                if custom_cal is not None and custom_cal.strip():
+                    calories = validate_non_negative_float(custom_cal, "Calories", max_val=10000.0)
+                else:
+                    body_weight = current_user.weight if current_user.weight else 70
+                    ex_ref = Exercise.query.filter_by(name=gym_row.exercise, is_cardio=True).first()
+                    if ex_ref and ex_ref.cardio_meta:
+                        meta = json.loads(ex_ref.cardio_meta)
+                    else:
+                        from constants import CARDIO_META
+                        meta = CARDIO_META.get(gym_row.exercise, {"met": 5.0, "baseline_speed": 6.0, "speed_factor": 0.25})
+
+                    base_met = meta["met"]
+                    baseline_speed = meta["baseline_speed"]
+                    speed_factor_val = meta["speed_factor"]
+                    speed_boost = max(0, speed - baseline_speed) * speed_factor_val
+                    incline_boost = max(0, incline) * 0.35 if gym_row.exercise == "Inclined Walking" else 0
+                    calories = round(((base_met + speed_boost + incline_boost) * 3.5 * body_weight / 200) * duration, 1)
+
+                gym_row.duration = duration
+                gym_row.speed = speed
+                gym_row.incline = incline
+                gym_row.intensity = intensity
+                gym_row.calories = calories
+            else:
+                sets = validate_int_range(request.form.get("sets"), "Sets", min_val=1, max_val=100)
+                reps = validate_int_range(request.form.get("reps"), "Reps per set", min_val=1, max_val=500)
+                weight = validate_non_negative_float(request.form.get("weight") or 0.0, "Weight", max_val=1000.0)
+
+                custom_cal = request.form.get("calories")
+                if custom_cal is not None and custom_cal.strip():
+                    calories = validate_non_negative_float(custom_cal, "Calories", max_val=10000.0)
+                else:
+                    muscle_factor = MUSCLE_FACTORS.get(gym_row.muscle, 1.0)
+                    intensity_val = INTENSITY_MAP.get(intensity, 1.0)
+                    eff_weight = weight if weight > 0 else 50
+                    calories = round((sets * reps * eff_weight * 0.04) * muscle_factor * intensity_val, 1)
+
+                gym_row.sets = sets
+                gym_row.reps = reps
+                gym_row.weight = weight
+                gym_row.intensity = intensity
+                gym_row.calories = calories
+
+                WorkoutSet.query.filter_by(gym_log_id=gym_row.id).delete()
+                for s_num in range(1, sets + 1):
+                    ws = WorkoutSet(
+                        gym_log_id=gym_row.id,
+                        set_number=s_num,
+                        reps=reps,
+                        weight=weight,
+                        completed=True,
+                    )
+                    db.session.add(ws)
+
+            db.session.commit()
+            flash("Workout updated successfully.")
+            return redirect(url_for("dashboard.gym", date=gym_row.date))
+        except ValueError as e:
+            flash(str(e))
+            return redirect(url_for("dashboard.edit_gym", item_id=item_id))
+
+    return render_template(
+        "edit_gym.html",
+        active_page="gym",
+        log=gym_row,
+        is_cardio=is_cardio,
+        cardio_exercises=CARDIO_EXERCISES,
+    )
+
+
 # ───────────────────────── Lookup API ──────────────────────────
 
 @dashboard_bp.route("/api/food-items")
