@@ -324,6 +324,17 @@ let strengthMode = 'quick';
 
 async function loadDynamicExercises() {
     try {
+        const cached = sessionStorage.getItem('vitallog_exercises_catalog');
+        if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && Object.keys(parsed).length > 0) {
+                catalogExercises = parsed;
+                return;
+            }
+        }
+    } catch (e) {}
+
+    try {
         const resp = await fetch('/api/exercises');
         if (resp.ok) {
             const data = await resp.json();
@@ -333,6 +344,9 @@ async function loadDynamicExercises() {
             }
             if (Object.keys(catalog).length > 0) {
                 catalogExercises = catalog;
+                try {
+                    sessionStorage.setItem('vitallog_exercises_catalog', JSON.stringify(catalog));
+                } catch (e) {}
             }
         }
     } catch (e) {

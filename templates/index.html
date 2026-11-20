@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="manifest" href="/manifest.json">
   <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </head>
 
 <body class="{{ 'dark' if dark_mode else '' }}">
@@ -221,140 +221,145 @@
 
 <!-- JS -->
 <script>
-/* -------------------- ANIMATIONS -------------------- */
-// Count-up animation for numbers
-document.querySelectorAll('.count-up').forEach(el => {
-    const target = parseFloat(el.innerText);
-    if (isNaN(target)) return;
-    let count = 0;
-    const duration = 1500;
-    const increment = target / (duration / 16);
-    
-    const updateCount = () => {
-        count += increment;
-        if (count < target) {
-            el.innerText = Math.floor(count);
-            requestAnimationFrame(updateCount);
-        } else {
-            el.innerText = Math.round(target);
-        }
-    };
-    updateCount();
-});
-
-/* -------------------- HEALTH SCORE CIRCLE -------------------- */
-{% set h_score = health_score if health_score is not none else 0 %}
-const scoreCtx = document.getElementById('healthScoreCircle').getContext('2d');
-new Chart(scoreCtx, {
-    type: 'doughnut',
-    data: {
-        datasets: [{
-            data: [{{ h_score }}, {{ 100 - h_score }}],
-            backgroundColor: [document.body.classList.contains('dark-theme') ? '#5B8CFF' : '#2563EB', document.body.classList.contains('dark-theme') ? 'rgba(91, 140, 255, 0.15)' : 'rgba(37, 99, 235, 0.1)'],
-            borderWidth: 0,
-            borderRadius: 10
-        }]
-    },
-    options: {
-        cutout: '85%',
-        plugins: { tooltip: { enabled: false }, legend: { display: false } }
-    }
-});
-
-/* -------------------- WEEKLY CHARTS -------------------- */
-(function() {
-    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    Chart.defaults.color = "#94a3b8";
-
-    // Standardize labels to MM-DD
-    const rawWkLabels = {{ week | tojson }};
-    const isCompactViewport = window.matchMedia('(max-width: 640px)').matches;
-    const labels = rawWkLabels.map((label) => {
-        if (label.length <= 5) return label;
-        const shortLabel = label.substring(5);
-        return isCompactViewport ? shortLabel.substring(3) : shortLabel;
+document.addEventListener('DOMContentLoaded', function() {
+    /* -------------------- ANIMATIONS -------------------- */
+    // Count-up animation for numbers
+    document.querySelectorAll('.count-up').forEach(el => {
+        const target = parseFloat(el.innerText);
+        if (isNaN(target)) return;
+        let count = 0;
+        const duration = 1500;
+        const increment = target / (duration / 16);
+        
+        const updateCount = () => {
+            count += increment;
+            if (count < target) {
+                el.innerText = Math.floor(count);
+                requestAnimationFrame(updateCount);
+            } else {
+                el.innerText = Math.round(target);
+            }
+        };
+        updateCount();
     });
 
-    const commonWeeklyOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        layout: {
-            padding: isCompactViewport
-                ? { top: 6, right: 4, bottom: 0, left: 0 }
-                : { top: 10, right: 8, bottom: 4, left: 4 }
-        },
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                callbacks: {
-                    title(items) {
-                        const index = items[0]?.dataIndex ?? 0;
-                        return rawWkLabels[index];
+    /* -------------------- HEALTH SCORE CIRCLE -------------------- */
+    {% set h_score = health_score if health_score is not none else 0 %}
+    const scoreCtx = document.getElementById('healthScoreCircle');
+    if (scoreCtx) {
+        new Chart(scoreCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [{{ h_score }}, {{ 100 - h_score }}],
+                    backgroundColor: [document.body.classList.contains('dark-theme') ? '#5B8CFF' : '#2563EB', document.body.classList.contains('dark-theme') ? 'rgba(91, 140, 255, 0.15)' : 'rgba(37, 99, 235, 0.1)'],
+                    borderWidth: 0,
+                    borderRadius: 10
+                }]
+            },
+            options: {
+                cutout: '85%',
+                plugins: { tooltip: { enabled: false }, legend: { display: false } }
+            }
+        });
+    }
+
+    /* -------------------- WEEKLY CHARTS -------------------- */
+    (function() {
+        if (!document.getElementById('weeklyCalories') || !document.getElementById('weeklyGym')) return;
+        Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        Chart.defaults.color = "#94a3b8";
+
+        // Standardize labels to MM-DD
+        const rawWkLabels = {{ week | tojson }};
+        const isCompactViewport = window.matchMedia('(max-width: 640px)').matches;
+        const labels = rawWkLabels.map((label) => {
+            if (label.length <= 5) return label;
+            const shortLabel = label.substring(5);
+            return isCompactViewport ? shortLabel.substring(3) : shortLabel;
+        });
+
+        const commonWeeklyOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: isCompactViewport
+                    ? { top: 6, right: 4, bottom: 0, left: 0 }
+                    : { top: 10, right: 8, bottom: 4, left: 4 }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        title(items) {
+                            const index = items[0]?.dataIndex ?? 0;
+                            return rawWkLabels[index];
+                        }
                     }
                 }
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                grace: '8%',
-                ticks: {
-                    maxTicksLimit: isCompactViewport ? 5 : 7,
-                    padding: isCompactViewport ? 6 : 8,
-                    font: { size: isCompactViewport ? 10 : 11 }
-                },
-                grid: { color: document.body.classList.contains('dark-theme') ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' }
             },
-            x: {
-                offset: false,
-                ticks: {
-                    maxRotation: 0,
-                    minRotation: 0,
-                    autoSkip: false,
-                    padding: isCompactViewport ? 6 : 10,
-                    font: { size: isCompactViewport ? 9 : 11 }
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grace: '8%',
+                    ticks: {
+                        maxTicksLimit: isCompactViewport ? 5 : 7,
+                        padding: isCompactViewport ? 6 : 8,
+                        font: { size: isCompactViewport ? 10 : 11 }
+                    },
+                    grid: { color: document.body.classList.contains('dark-theme') ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' }
                 },
-                grid: { display: false }
+                x: {
+                    offset: false,
+                    ticks: {
+                        maxRotation: 0,
+                        minRotation: 0,
+                        autoSkip: false,
+                        padding: isCompactViewport ? 6 : 10,
+                        font: { size: isCompactViewport ? 9 : 11 }
+                    },
+                    grid: { display: false }
+                }
             }
-        }
-    };
+        };
 
-    new Chart(document.getElementById('weeklyCalories'), {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Calories',
-          data: {{ weekly_cal | tojson }},
-          borderColor: document.body.classList.contains('dark-theme') ? '#5B8CFF' : '#2563EB',
-          backgroundColor: document.body.classList.contains('dark-theme') ? 'rgba(91, 140, 255, 0.12)' : 'rgba(37, 99, 235, 0.08)',
-          borderWidth: 3,
-          tension: 0.4,
-          pointRadius: isCompactViewport ? 2.5 : 3.5,
-          pointHoverRadius: isCompactViewport ? 3.5 : 4.5,
-          fill: true
-        }]
-      },
-      options: commonWeeklyOptions
-    });
+        new Chart(document.getElementById('weeklyCalories'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Calories',
+              data: {{ weekly_cal | tojson }},
+              borderColor: document.body.classList.contains('dark-theme') ? '#5B8CFF' : '#2563EB',
+              backgroundColor: document.body.classList.contains('dark-theme') ? 'rgba(91, 140, 255, 0.12)' : 'rgba(37, 99, 235, 0.08)',
+              borderWidth: 3,
+              tension: 0.4,
+              pointRadius: isCompactViewport ? 2.5 : 3.5,
+              pointHoverRadius: isCompactViewport ? 3.5 : 4.5,
+              fill: true
+            }]
+          },
+          options: commonWeeklyOptions
+        });
 
-    new Chart(document.getElementById('weeklyGym'), {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Gym Burns',
-          data: {{ weekly_gym | tojson }},
-          backgroundColor: '#ef4444',
-          borderRadius: 8,
-          barPercentage: isCompactViewport ? 0.64 : 0.72,
-          categoryPercentage: isCompactViewport ? 0.9 : 0.8,
-          maxBarThickness: isCompactViewport ? 22 : 30
-        }]
-      },
-      options: commonWeeklyOptions
-    });
-})();
+        new Chart(document.getElementById('weeklyGym'), {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Gym Burns',
+              data: {{ weekly_gym | tojson }},
+              backgroundColor: '#ef4444',
+              borderRadius: 8,
+              barPercentage: isCompactViewport ? 0.64 : 0.72,
+              categoryPercentage: isCompactViewport ? 0.9 : 0.8,
+              maxBarThickness: isCompactViewport ? 22 : 30
+            }]
+          },
+          options: commonWeeklyOptions
+        });
+    })();
+});
 
 function switchChartTab(chartType, buttonEl) {
     const container = buttonEl.closest('.chart-card-wrapper');

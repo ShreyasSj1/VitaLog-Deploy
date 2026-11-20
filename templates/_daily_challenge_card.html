@@ -102,9 +102,6 @@
     </div>
 </div>
 
-<!-- Canvas Confetti Library (Lightweight CDN) -->
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
-
 <script>
 let challengeTimerInterval = null;
 let challengeTimerSeconds = 0;
@@ -178,27 +175,37 @@ async function submitChallengeCompletion(dateStr) {
 
         const data = await response.json();
         if (data.success) {
-            // Trigger Confetti Celebration!
-            if (typeof confetti === 'function') {
-                confetti({
-                    particleCount: 90,
-                    spread: 70,
-                    origin: { y: 0.6 }
-                });
-                setTimeout(() => {
+            // Trigger Confetti Celebration (Loaded dynamically on demand)
+            const fireConfetti = () => {
+                if (typeof confetti === 'function') {
                     confetti({
-                        particleCount: 60,
-                        angle: 60,
-                        spread: 55,
-                        origin: { x: 0 }
+                        particleCount: 90,
+                        spread: 70,
+                        origin: { y: 0.6 }
                     });
-                    confetti({
-                        particleCount: 60,
-                        angle: 120,
-                        spread: 55,
-                        origin: { x: 1 }
-                    });
-                }, 250);
+                    setTimeout(() => {
+                        confetti({
+                            particleCount: 60,
+                            angle: 60,
+                            spread: 55,
+                            origin: { x: 0 }
+                        });
+                        confetti({
+                            particleCount: 60,
+                            angle: 120,
+                            spread: 55,
+                            origin: { x: 1 }
+                        });
+                    }, 250);
+                }
+            };
+            if (typeof confetti !== 'function') {
+                const confScript = document.createElement('script');
+                confScript.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js';
+                confScript.onload = fireConfetti;
+                document.head.appendChild(confScript);
+            } else {
+                fireConfetti();
             }
 
             if (btn) {
