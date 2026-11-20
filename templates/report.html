@@ -10,7 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="manifest" href="/manifest.json">
     <script src="{{ url_for('static', filename='js/pwa.js') }}" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
 </head>
 <body>
 
@@ -142,17 +142,18 @@
 
 <!-- ================= CHART SCRIPTS ================= -->
 <script>
-const rawLabels = {{ week | tojson }};
-const isCompactViewport = window.matchMedia('(max-width: 640px)').matches;
-const labels = rawLabels.map((label) => {
-    if (label.length <= 5) return label;
-    const shortLabel = label.substring(5);
-    return isCompactViewport ? shortLabel.substring(3) : shortLabel;
-});
+document.addEventListener('DOMContentLoaded', function() {
+    const rawLabels = {{ week | tojson }};
+    const isCompactViewport = window.matchMedia('(max-width: 640px)').matches;
+    const labels = rawLabels.map((label) => {
+        if (label.length <= 5) return label;
+        const shortLabel = label.substring(5);
+        return isCompactViewport ? shortLabel.substring(3) : shortLabel;
+    });
 
-// Set global chart defaults
-Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-Chart.defaults.color = "#94a3b8";
+    // Set global chart defaults
+    Chart.defaults.font.family = "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+    Chart.defaults.color = "#94a3b8";
 
 const commonOptions = {
     responsive: true,
@@ -315,6 +316,7 @@ new Chart(document.getElementById("weightChart"), {
             }
         }
     }
+    });
 });
 
 function switchReportTab(tabName) {

@@ -4,6 +4,8 @@ const OFFLINE_URL = '/offline';
 const ASSETS_TO_CACHE = [
   OFFLINE_URL,
   '/static/style.css',
+  '/static/js/pwa.js',
+  '/static/js/chatbot.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
@@ -48,19 +50,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First for style.css and client JS script
+  // Stale-While-Revalidate for style.css and client JS scripts for instant page rendering
   if (event.request.url.includes('/static/style.css') || event.request.url.includes('/static/js/')) {
     event.respondWith(
-      fetch(event.request).then((networkResponse) => {
-        if (networkResponse.status === 200) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-        }
-        return networkResponse;
-      }).catch(() => {
-        return caches.match(event.request);
+      caches.match(event.request).then((cachedResponse) => {
+        const fetchPromise = fetch(event.request).then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        }).catch(() => cachedResponse);
+
+        return cachedResponse || fetchPromise;
       })
     );
     return;
