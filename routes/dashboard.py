@@ -535,7 +535,7 @@ def gym():
     logs = GymLog.query.filter_by(user_id=current_user.id, date=selected_date).order_by(GymLog.id.desc()).all()
 
     streak = 0
-    all_dates = db.session.query(GymLog.date).filter_by(user_id=current_user.id).distinct().order_by(GymLog.date.desc()).all()
+    all_dates = db.session.query(GymLog.date).filter_by(user_id=current_user.id).distinct().order_by(GymLog.date.desc()).limit(365).all()
     dates = [row.date for row in all_dates]
 
     current_day = get_today()
